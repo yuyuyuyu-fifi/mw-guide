@@ -938,31 +938,33 @@ function renderSlots(it) {
   const t = totalsOf(it)
   const own = statMap(it.stats)
   const rar = Number(it.rarity || 0)
+  // 只放原始数据里有的舰体属性；合计算法各站/游戏口径不同，放到页脚注明，不当主指标
   const statRowsHtml = [
-    ['总爆发伤害', num(t.salvoShip), true],
-    ['理论分均伤害', num(t.shipDpm), true],
     ['耐久', num(statNum(own.health) || 0)],
     ['速度', statText('speed', own) || '—'],
     ['机动性', statText('mobility', own) || '—'],
     ['视野范围', statText('viewRange', own) || '—'],
     ['隐身', statText('stealth', own) || '—'],
+    ['槽位', t.slots + ' 个（' + t.locked + ' 锁定）'],
   ].map(function (r) {
-    return '<div class="prow"><span>' + r[0] + '</span><b class="' + (r[2] ? 'hl' : '') + '">' + esc(r[1]) + '</b></div>'
+    return '<div class="prow"><span>' + r[0] + '</span><b>' + esc(r[1]) + '</b></div>'
   }).join('')
 
   const slots = lo.map(function (p) {
     const e = slotEquip(it, p)
     const mm = statMap(e.stats)
-    const per = statNum(mm.dpm) || statNum(mm.burstShip) || null
-    const eff = per == null ? '' : '分均 ' + num(per * p.n) + (p.n > 1 ? '（单件 ' + num(per) + '）' : '')
+    const dpmV = statNum(mm.dpm)
+    const per = dpmV != null ? dpmV : statNum(mm.burstShip)
+    const perLabel = dpmV != null ? '分均 ' : '单轮 '
+    const eff = per == null ? '' : perLabel + num(per * p.n) + (p.n > 1 ? '（单件 ' + num(per) + '）' : '')
     const sub = [p.slot, eff, e.swapped ? '已换装' : ''].filter(Boolean).join(' · ')
-    const tag = p.locked ? '<span class="lockb">锁定</span>' : '<span class="swapb">换装</span>'
-    return '<button class="hslot" data-swap="' + p.i + '"' + (p.locked ? ' aria-disabled="true"' : '') + '>' +
+    const tag = p.locked ? '<span class="lockb">锁定</span>' : '<span class="swapb" data-swap="' + p.i + '">换装</span>'
+    return '<div class="hslot" data-part="' + p.i + '">' +
       '<div class="tile">' + ph(e.icon, e.label, true) +
         (p.n > 1 ? '<span class="cnt">×' + p.n + '</span>' : '') +
         '<span class="tr">' + tierTxt(e.tier || p.tier || it.tier) + '</span></div>' +
       '<div class="hmeta"><div class="n">' + esc(e.label) + '</div><div class="s">' + esc(sub) + '</div></div>' +
-      tag + '</button>'
+      tag + '</div>'
   }).join('')
 
   return '<div class="stage"><div class="big">' + ph(it.icon, label(it)) + '</div>' +
@@ -972,7 +974,9 @@ function renderSlots(it) {
     '<div class="statpanel">' + statRowsHtml + '</div>' +
     '<div class="rail">' + slots + '</div>' +
     '<div class="actions"><button class="btn" id="resetbuild">恢复原装</button><button class="btn primary" id="savebuild">复制配装</button></div>' +
-    '<div class="foot">×N = 这个槽位有 N 个发射装置 / 挂架，合计按 N 份计入<br>点可换装的槽位就能换装备；换装只影响这里的合计，不改动游戏</div>'
+    '<div class="foot">点任意槽位看这件装备的完整数值；点「换装」换装备。<br>' +
+      '本地合计（估算）：对舰单轮 ' + num(t.salvoShip) + ' · 对舰分均 ' + num(t.shipDpm) + '（×N 已计入）<br>' +
+      '游戏内「总爆发 / 理论分均」还含飞机出动与升级加成，口径不同，这里不冒充。</div>'
 }
 
 /* ── 对比 ─────────────────────────────────────────────────────────────── */
@@ -1511,6 +1515,8 @@ document.addEventListener('click', function (e) {
     openSwap(CUR, part)
     return
   }
+  const pt = t.closest('[data-part]')
+  if (pt && CUR) { openPart(CUR, Number(pt.dataset.part)); return }
   const rm = t.closest('[data-rmcmp]')
   if (rm) { S.cmp = S.cmp.filter(function (x) { return x !== rm.dataset.rmcmp }); save(); setTab('cmp'); renderCompare(); return }
   const sideBtn = t.closest('[data-side]')
@@ -1540,6 +1546,29 @@ document.addEventListener('click', function (e) {
     return
   }
 })
+function openPartSheet(it, part) {
+  const rows = statRows(part.stats, 60)
+  $modal.innerHTML = '<div class="scrim" data-close="1"></div><div class="sheet">' +
+    '<div class="h"><b>' + esc(part.label) + '</b><button data-close="1">关闭</button></div>' +
+    '<div class="sb"><div class="ps" style="font-size:12.5px;color:var(--muted)">' +
+      esc((it ? label(it) : '') + ' · ' + (part.slot || '槽位') + (part.locked ? ' · 锁定' : ' · 可换') + ' · ×' + part.n) + '</div></div>' +
+    '<div class="list"><div class="table">' + rows.map(function (r) {
+      return '<div class="row"><span class="k">' + esc(r[1]) + '</span><span class="v">' + esc(r[2]) + '</span></div>'
+    }).join('') + '</div>' +
+    '<div class="foot">数值取自官方数据文件，随「基础 / 满级」开关切换</div></div></div>'
+  Array.prototype.forEach.call($modal.querySelectorAll('[data-close]'), function (el) {
+    el.onclick = function () { $modal.innerHTML = '' }
+  })
+}
+
+function openPart(it, i) {
+  const part = loadout(it)[i]
+  if (!part) return
+  if (part.detail) { location.hash = '#/item/equips/' + encodeURIComponent(part.detail.id); return }
+  if (part.stats) { openPartSheet(it, part); return }
+  toast('这件没有单独的数值')
+}
+
 document.addEventListener('pointerdown', function (e) {
   if (!S.sound) return
   const t = e.target
