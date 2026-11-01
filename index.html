@@ -10,6 +10,7 @@
 <meta property="og:description" content="880 条舰船与装备：面板、配装模拟、对比、对战推演。数据来自 sirin.asia。">
 <meta property="og:image" content="https://sirin.asia/en/out/icons/Type055.webp">
 <meta name="twitter:card" content="summary_large_image">
+<link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b1220'/%3E%3Cpath d='M10 40h44l-6 8H16z' fill='%234cc2ff'/%3E%3Cpath d='M22 24h20l4 14H18z' fill='%234cc2ff' opacity='.75'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://sirin.asia" crossorigin>
 <link rel="dns-prefetch" href="//sirin.asia">
@@ -203,6 +204,9 @@ nav.tabs .dot{position:absolute;top:6px;right:calc(50% - 20px);background:var(--
 .notice p b{color:var(--text)}
 .notice .ok{margin-top:14px;width:100%;background:var(--accent);color:#04121f;border-radius:12px;padding:11px;font-weight:700;text-align:center}
 
+.pchips{display:flex;gap:6px;overflow-x:auto;margin:10px 0;scrollbar-width:none}
+.pchips::-webkit-scrollbar{display:none}
+
 /* settings */
 .setlabel{font-size:12px;color:var(--muted);margin:14px 0 8px;letter-spacing:.4px}
 .swatches{display:flex;gap:8px;flex-wrap:wrap}
@@ -316,7 +320,7 @@ for (const it of ITEMS) {
 /* ── 状态 ─────────────────────────────────────────────────────────────── */
 const LSKEY = 'mwdata.v3'
 function loadState() {
-  const base = { fav: [], recent: [], cmp: [], builds: {}, itemTab: 'sum', battle: { red: '', blue: '', dist: 8 }, theme: 'deep', maxed: false, sound: true }
+  const base = { fav: [], recent: [], cmp: [], builds: {}, presets: {}, itemTab: 'sum', battle: { red: '', blue: '', dist: 8 }, theme: 'deep', maxed: false, sound: true }
   try { return Object.assign(base, JSON.parse(localStorage.getItem(LSKEY) || '{}')) } catch { return base }
 }
 const S = loadState()
@@ -984,6 +988,62 @@ function renderItem(it) {
   if (cb) cb.onclick = function () { copyItem(it) }
 }
 
+function presetBar(it) {
+  const k = keyOf(it)
+  const list = S.presets[k] || []
+  const used = Object.keys(buildOf(it)).length > 0
+  let html = '<div class="pchips">' +
+    '<button class="chip small' + (used ? '' : ' on') + '" data-preset="-1">原装</button>' +
+    list.map(function (p, i) { return '<button class="chip small" data-preset="' + i + '">' + esc(p.name) + '</button>' }).join('') +
+    '<button class="chip small" data-presave="1">＋ 存为方案</button>' +
+    (list.length ? '<button class="chip small" data-preset-clear="1">清空方案</button>' : '') +
+    '</div>'
+  return html
+}
+
+function openSinkPicker(attacker) {
+  const ships = ITEMS.filter(function (x) { return x.kind === 'ship' })
+  function row(it) {
+    return '<button class="pick" data-sink="' + keyOf(it) + '">' + ph(it.icon, label(it), true) +
+      '<div class="pi"><div class="pn">' + esc(label(it)) + ' · ' + tierTxt(it.tier) + '</div><div class="ps">' +
+      esc([it.flagCn, it.typeCn].filter(Boolean).join(' · ')) + '</div></div>' +
+      '<span class="pv">' + num(statNum(statMap(it.stats).health) || 0) + '</span></button>'
+  }
+  $modal.innerHTML = '<div class="scrim" data-close="1"></div><div class="sheet">' +
+    '<div class="h"><b>击沉计算 · 选目标</b><button data-close="1">关闭</button></div>' +
+    '<div class="sb"><input id="sinks" placeholder="搜目标舰船（' + ships.length + ' 艘）" autocomplete="off"></div>' +
+    '<div class="list" id="sinklist"><div class="table">' + ships.slice(0, 30).map(row).join('') + '</div></div>' +
+    '<div id="sinkresult" style="padding:0 14px 12px"></div></div>'
+  const input = document.getElementById('sinks')
+  const listEl = document.getElementById('sinklist')
+  const resEl = document.getElementById('sinkresult')
+  function bind() {
+    Array.prototype.forEach.call(listEl.querySelectorAll('[data-sink]'), function (el) {
+      el.onclick = function () {
+        const target = BY.get(el.getAttribute('data-sink'))
+        if (!target) return
+        const dist = Number(S.battle.dist) || 8
+        const ghost = Object.assign({}, target, { load: [] })
+        const r = simulate(attacker, ghost, dist)
+        const t = totalsOf(attacker)
+        const hp = statNum(statMap(target.stats).health) || 1
+        const rounds = t.salvoShip > 0 ? Math.ceil(hp / t.salvoShip) : 0
+        resEl.innerHTML = '<div class="win"><b>' + esc(label(target)) + ' · ' + (r.decided ? r.time.toFixed(1) + ' 秒击沉' : '300 秒内打不沉') + '</b>' +
+          '<span>距离 ' + dist + ' km · 全舰单轮 ' + num(t.salvoShip) + ' · 约 ' + rounds + ' 轮齐射</span></div>'
+        toast(r.decided ? '击沉用时 ' + r.time.toFixed(1) + ' 秒' : '打不沉')
+      }
+    })
+  }
+  input.oninput = function () {
+    const q = input.value.trim()
+    const list = q ? search(q).filter(function (x) { return x.kind === 'ship' }) : ships
+    listEl.innerHTML = '<div class="table">' + list.slice(0, 40).map(row).join('') + '</div>'
+    bind()
+  }
+  bind()
+  Array.prototype.forEach.call($modal.querySelectorAll('[data-close]'), function (el) { el.onclick = function () { $modal.innerHTML = '' } })
+}
+
 function renderSlots(it) {
   const lo = loadout(it)
   if (!lo.length) return '<div class="empty">这件没有装备槽位</div>'
@@ -1053,7 +1113,8 @@ function renderSlots(it) {
     '</div>' +
     '<div class="statpanel">' + statRowsHtml + '</div>' +
     '<div class="rail">' + slots + '</div>' +
-    '<div class="actions"><button class="btn" id="resetbuild">恢复原装</button><button class="btn primary" id="savebuild">复制配装</button></div>' +
+    presetBar(it) +
+    '<div class="actions"><button class="btn" id="resetbuild">恢复原装</button><button class="btn" id="savebuild">复制配装</button><button class="btn primary" id="sinkcalc">击沉计算</button></div>' +
     '<div class="foot">点任意槽位看这件装备的完整数值；点「换装」换装备。<br>' +
       '本地合计（估算）：对舰单轮 ' + num(t.salvoShip) + ' · 对舰分均 ' + num(t.shipDpm) + '（×N 已计入）<br>' +
       '游戏内「总爆发 / 理论分均」还含飞机出动与升级加成，口径不同，这里不冒充。</div>'
@@ -1114,33 +1175,51 @@ function pushRecent(it) {
 function openSwap(it, part) {
   const cands = slotCandidates(part)
   const chosen = buildOf(it)[part.i] || ''
-  const list = cands.slice().sort(function (a, b) {
-    return (statNum(statMap(b.stats).dpm) || 0) - (statNum(statMap(a.stats).dpm) || 0)
-  })
+  const F = { t: 'all', s: 'dpm' }
+  function tt(e) { const m = statMap(e.stats); return m.targetType ? String(statNum(m.targetType)) : '' }
+  function val(e, k) { const m = statMap(e.stats); return statNum(m[k]) || 0 }
+  function render() {
+    let arr = cands.slice()
+    if (F.t === 'air') arr = arr.filter(function (e) { return tt(e).indexOf('空中') >= 0 })
+    if (F.t === 'sea') arr = arr.filter(function (e) { return tt(e).indexOf('水面') >= 0 })
+    if (F.t === 'sub') arr = arr.filter(function (e) { return tt(e).indexOf('水下') >= 0 })
+    arr.sort(function (a, b) {
+      if (F.s === 'range') return val(b, 'range') - val(a, 'range')
+      if (F.s === 'weight') return val(a, 'weight') - val(b, 'weight')
+      return (val(b, 'dpm') || val(b, 'burstShip')) - (val(a, 'dpm') || val(a, 'burstShip'))
+    })
+    return arr
+  }
   function row(e) {
-    const mm = statMap(e.stats)
+    const m = statMap(e.stats)
     return '<button class="pick" data-pick="' + e.id + '">' + ph(e.icon, e.cn || e.name, true) +
       '<div class="pi"><div class="pn">' + esc(e.cn || e.name) + ' · ' + tierTxt(e.tier) + '</div><div class="ps">' +
-      [statText('dpm', mm), statText('range', mm), statText('reloadTime', mm)].filter(Boolean).join(' · ') + '</div></div>' +
-      '<span class="pv">' + (statText('weight', mm) || '') + '</span></button>'
+      [statText('dpm', m), statText('range', m), statText('reloadTime', m), tt(e)].filter(Boolean).join(' · ') + '</div></div>' +
+      '<span class="pv">' + (statText('weight', m) || '') + '</span></button>'
   }
   const reset = chosen ? '<button class="pick" data-pick=""><div class="pi"><div class="pn">恢复原装</div><div class="ps">' + esc(part.label) + '</div></div></button>' : ''
   $modal.innerHTML = '<div class="scrim" data-close="1"></div><div class="sheet">' +
     '<div class="h"><b>换装 · ' + esc(part.slot || '槽位') + '</b><button data-close="1">关闭</button></div>' +
     '<div class="sb"><input id="picks" placeholder="在 ' + cands.length + ' 件同型装备里搜" autocomplete="off"></div>' +
-    '<div class="list" id="picklist">' + reset + list.map(row).join('') + '</div></div>'
+    '<div class="chips" id="pickfilters" style="padding:0 14px 8px">' +
+      [['all', '全部'], ['air', '对空'], ['sea', '对水面'], ['sub', '对潜']].map(function (p) {
+        return '<button class="chip small' + (F.t === p[0] ? ' on' : '') + '" data-ft="' + p[0] + '">' + p[1] + '</button>'
+      }).join('') +
+      [['dpm', '按伤害'], ['range', '按射程'], ['weight', '按权重']].map(function (p) {
+        return '<button class="chip small' + (F.s === p[0] ? ' on' : '') + '" data-fs="' + p[0] + '">' + p[1] + '</button>'
+      }).join('') +
+    '</div>' +
+    '<div class="list" id="picklist"></div></div>'
   const input = document.getElementById('picks')
   const listEl = document.getElementById('picklist')
-  input.oninput = function () {
+  function paint() {
+    let arr = render()
     const q = norm(input.value)
-    const filtered = q ? list.filter(function (e) { return norm(e.cn || e.name).indexOf(q) >= 0 || norm(e.name).indexOf(q) >= 0 }) : list
-    listEl.innerHTML = reset + filtered.map(row).join('')
-    bindPicks()
-  }
-  function bindPicks() {
+    if (q) arr = arr.filter(function (e) { return norm(e.cn || e.name).indexOf(q) >= 0 || norm(e.name).indexOf(q) >= 0 })
+    listEl.innerHTML = reset + arr.map(row).join('') + (arr.length ? '' : '<div class="empty">没有符合的装备</div>')
     Array.prototype.forEach.call(listEl.querySelectorAll('[data-pick]'), function (el) {
       el.onclick = function () {
-        const id = el.dataset.pick
+        const id = el.getAttribute('data-pick')
         const b = Object.assign({}, S.builds[keyOf(it)] || {})
         if (id) b[part.i] = id
         else delete b[part.i]
@@ -1151,213 +1230,25 @@ function openSwap(it, part) {
       }
     })
   }
-  bindPicks()
+  input.oninput = paint
+  Array.prototype.forEach.call($modal.querySelectorAll('[data-ft]'), function (el) {
+    el.onclick = function () {
+      F.t = el.getAttribute('data-ft')
+      Array.prototype.forEach.call($modal.querySelectorAll('[data-ft]'), function (x) { x.classList.toggle('on', x === el) })
+      paint()
+    }
+  })
+  Array.prototype.forEach.call($modal.querySelectorAll('[data-fs]'), function (el) {
+    el.onclick = function () {
+      F.s = el.getAttribute('data-fs')
+      Array.prototype.forEach.call($modal.querySelectorAll('[data-fs]'), function (x) { x.classList.toggle('on', x === el) })
+      paint()
+    }
+  })
+  paint()
   Array.prototype.forEach.call($modal.querySelectorAll('[data-close]'), function (el) {
     el.onclick = function () { $modal.innerHTML = '' }
   })
-}
-
-/* ── 斗蛐蛐 ───────────────────────────────────────────────────────────── */
-let BATTLE = null
-const KM_PER_KN_S = 0.001852 // 1 节 ≈ 0.001852 千米/秒
-
-function simWeapons(it, distance) {
-  const ws = []
-  for (const p of loadout(it)) {
-    const e = slotEquip(it, p)
-    const m = statMap(e.stats)
-    const kind = e.item ? e.item.kind : 'weapon'
-    if (kind === 'aircraft' || kind === 'helicopter' || kind === 'unmanned') {
-      // 飞机：拆成一件件挂载武器，各自按自己的冷却开火（不受水面射程限制）
-      const subs = Array.isArray(e.item && e.item.fixed) ? e.item.fixed : []
-      if (!subs.length) {
-        const per = statNum(m.burstShip) || 0
-        if (per) {
-          const cd = statNum(m.cooldown) || 30
-          ws.push({ name: e.label, n: p.n, shot: per * p.n, reload: cd, lock: 0, travel: 0, inRange: true, why: '', next: cd * 0.5, count: 0, dmg: 0 })
-        }
-        continue
-      }
-      for (const f of subs) {
-        const fm = statMap(f.stats)
-        const amt = Number(f.amount) || 1
-        const per = statNum(fm.burstTotal) || (statNum(fm.damage) || 0) * (statNum(fm.launchCount) || 1)
-        if (!per) continue
-        const rl = statNum(fm.reloadTime) || 10
-        ws.push({
-          name: e.label + ' · ' + ((f.cn || f.name) || '武器'), n: p.n, shot: per * amt * p.n,
-          reload: rl, lock: 0, travel: 0, inRange: true, why: '', next: rl * 0.5, count: 0, dmg: 0
-        })
-      }
-      continue
-    }
-    const tt = m.targetType == null ? '' : String(statNum(m.targetType))
-    const vsSurface = tt.indexOf('水面') >= 0
-    const range = statNum(m.range)
-    const minRange = statNum(m.minRange) || 0
-    const reload = statNum(m.reloadTime) || 10
-    // 单发伤害按「分均伤害」反推：dpm × 装填 ÷ 60，
-    // 这样整场模拟的持续输出正好等于界面上的分均伤害（自动炮的 burst 和 dpm 并不同源，不能直接用 burst）。
-    const dpm = statNum(m.dpm)
-    const per = dpm != null ? (dpm * reload) / 60 : (statNum(m.burstTotal) || (statNum(m.damage) || 0) * (statNum(m.launchCount) || 1))
-    if (!per) continue
-    const lock = statNum(m.lockTime) || 0
-    const speed = statNum(m.maxSpeed) || statNum(m.startSpeed) || 0
-    const travel = speed > 0 ? distance / (speed * KM_PER_KN_S) : 0
-    let why = ''
-    if (!vsSurface) why = tt ? '只打' + tt : '非对舰武器'
-    else if (range != null && range < distance) why = '射程 ' + num(range) + ' km'
-    else if (distance < minRange) why = '最小射程 ' + num(minRange) + ' km'
-    ws.push({
-      name: e.label, n: p.n, shot: per * p.n, reload: reload, lock: lock, travel: travel,
-      inRange: why === '', why: why, next: lock + reload * 0.5, count: 0, dmg: 0
-    })
-  }
-  return ws
-}
-
-// 双方固定距离：武器要够得着才开火；首发 = 锁定时间 + 半装填；
-// 命中按「距离 ÷ 弹速」延迟结算，炮弹还在飞的时候被打死就是输了。
-function simulate(a, b, distance) {
-  const D0 = distance
-  function mk(it) {
-    const hp = statNum(statMap(it.stats).health) || 100000
-    return { it: it, hp: hp, max: hp, ws: simWeapons(it, D0) }
-  }
-  const R = mk(a), B = mk(b)
-  const pending = []
-  const series = []
-  let t = 0, nextSample = 0
-  const step = 0.05
-  for (; t <= 300; t += step) {
-    for (let i = pending.length - 1; i >= 0; i--) {
-      if (pending[i].at <= t) {
-        if (pending[i].to === 'R') R.hp -= pending[i].dmg
-        else B.hp -= pending[i].dmg
-        pending.splice(i, 1)
-      }
-    }
-    for (const w of R.ws) {
-      if (!w.inRange) continue
-      while (t >= w.next) {
-        pending.push({ at: t + w.travel, to: 'B', dmg: w.shot })
-        w.dmg += w.shot
-        w.count++
-        w.next += w.reload
-      }
-    }
-    for (const w of B.ws) {
-      if (!w.inRange) continue
-      while (t >= w.next) {
-        pending.push({ at: t + w.travel, to: 'R', dmg: w.shot })
-        w.dmg += w.shot
-        w.count++
-        w.next += w.reload
-      }
-    }
-    if (t >= nextSample) {
-      series.push([t, Math.max(0, R.hp) / R.max, Math.max(0, B.hp) / B.max])
-      nextSample += 0.5
-    }
-    if (R.hp <= 0 || B.hp <= 0) break
-  }
-  const decided = R.hp <= 0 || B.hp <= 0
-  const winner = R.hp <= 0 && B.hp <= 0 ? null : B.hp <= 0 ? R : R.hp <= 0 ? B : null
-  return { R: R, B: B, winner: winner, time: Math.min(t, 300), series: series, decided: decided, dist: D0 }
-}
-
-function hpChart(series) {
-  if (!series.length) return ''
-  const W = 320, H = 132, P = 10
-  const tMax = Math.max(1, series[series.length - 1][0])
-  function px(t) { return P + (t / tMax) * (W - 2 * P) }
-  function py(v) { return H - P - v * (H - 2 * P) }
-  function line(i) {
-    return series.map(function (p, k) { return (k ? 'L' : 'M') + px(p[0]).toFixed(1) + ' ' + py(p[i]).toFixed(1) }).join(' ')
-  }
-  return '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg">' +
-    '<line x1="' + P + '" y1="' + (H - P) + '" x2="' + (W - P) + '" y2="' + (H - P) + '" stroke="var(--line)" stroke-width="1"/>' +
-    '<line x1="' + P + '" y1="' + P + '" x2="' + P + '" y2="' + (H - P) + '" stroke="var(--line)" stroke-width="1"/>' +
-    '<path d="' + line(1) + '" fill="none" stroke="var(--accent)" stroke-width="2"/>' +
-    '<path d="' + line(2) + '" fill="none" stroke="#ff6b6b" stroke-width="2"/>' +
-    '<text x="' + (W - P) + '" y="' + (H - P + 12) + '" text-anchor="end" font-size="10" fill="var(--muted)">' + tMax.toFixed(0) + ' 秒</text>' +
-    '<text x="' + (P + 2) + '" y="' + (P + 10) + '" font-size="10" fill="var(--muted)">耐久 100%</text>' +
-    '</svg>'
-}
-
-function weaponList(side) {
-  const used = side.ws.filter(function (w) { return w.count > 0 }).sort(function (x, y) { return y.dmg - x.dmg }).slice(0, 6)
-  const idle = side.ws.filter(function (w) { return w.count === 0 })
-  return used.map(function (w) {
-    return '<div class="row"><span class="k">' + esc(w.name) + (w.n > 1 ? ' ×' + w.n : '') + '</span><span class="v">' + num(Math.round(w.dmg)) + '</span></div>'
-  }).join('') + idle.map(function (w) {
-    return '<div class="row" style="opacity:.5"><span class="k">' + esc(w.name) + '</span><span class="v" style="color:var(--dim)">' + esc(w.why || '没开火') + '</span></div>'
-  }).join('')
-}
-
-function battleResultHtml(b) {
-  const R = b.R, B = b.B
-  const won = b.winner
-  const title = won ? esc(label(won.it)) + ' 获胜' : b.decided ? '同归于尽' : '300 秒没分出胜负'
-  const sub = (b.decided
-    ? b.time.toFixed(1) + ' 秒结束 · 红方剩 ' + Math.round(Math.max(0, R.hp) / R.max * 100) + '% · 蓝方剩 ' + Math.round(Math.max(0, B.hp) / B.max * 100) + '%'
-    : '两边都还有 ' + Math.round(R.hp / R.max * 100) + '% / ' + Math.round(B.hp / B.max * 100) + '% 耐久') + ' · 距离 ' + b.dist + ' km'
-  return '<div class="win"><b>' + title + '</b><span>' + esc(sub) + '</span>' +
-    '<div class="hp">红 ' + esc(label(R.it)) + ' vs 蓝 ' + esc(label(B.it)) + '</div></div>' +
-    '<div class="radar" style="padding:10px">' + hpChart(b.series) + '</div>' +
-    '<h3>出力明细（红方）</h3><div class="table">' + weaponList(R) + '</div>' +
-    '<h3>出力明细（蓝方）</h3><div class="table">' + weaponList(B) + '</div>'
-}
-
-function renderBattle() {
-  const red = S.battle.red ? BY.get(S.battle.red) : null
-  const blue = S.battle.blue ? BY.get(S.battle.blue) : null
-  function side(it, key, hint) {
-    const hp = it ? statNum(statMap(it.stats).health) : null
-    return '<div class="side">' + (it ? ph(it.icon, label(it), true) : '<div class="ph sq" data-ch="?"></div>') +
-      '<div class="sname">' + (it ? esc(label(it)) : hint) + '</div>' +
-      '<div class="smeta">' + (it ? esc([it.flagCn, tierTxt(it.tier) + ' 阶'].filter(Boolean).join(' · ')) : '还没选') + '</div>' +
-      (it ? '<div class="smeta">耐久 ' + num(hp || 0) + '</div>' : '') +
-      '<button class="btn" data-side="' + key + '">' + (it ? '换一艘' : '选舰船') + '</button></div>'
-  }
-  view.innerHTML = '<h3>斗蛐蛐 · 两艘船对轰</h3>' +
-    '<div class="vs">' + side(red, 'red', '红方') + '<div class="mid">VS</div>' + side(blue, 'blue', '蓝方') + '</div>' +
-    '<div class="distrow"><span>交战距离</span><input type="range" id="dist" min="2" max="25" step="0.5" value="' + (S.battle.dist || 8) + '"><b id="distv">' + (S.battle.dist || 8) + ' km</b></div>' +
-    '<div class="actions"><button class="btn primary" id="simstart"' + (red && blue ? '' : ' style="opacity:.45"') + '>开始对战</button></div>' +
-    '<div class="foot">双方固定在这个距离对轰：武器要够得着才开火，首发 = 锁定时间 + 半装填，<br>命中按「距离 ÷ 弹速」延迟结算；只算对舰 / 对潜火力，防空不参与。</div>' +
-    '<div id="result">' + (BATTLE ? battleResultHtml(BATTLE) : '') + '</div>'
-}
-
-function openShipPick(key) {
-  const ships = ITEMS.filter(function (x) { return x.kind === 'ship' })
-  const sorted = ships.slice().sort(function (a, b) { return (Number(b.tier || 0) - Number(a.tier || 0)) || label(a).localeCompare(label(b), 'zh') })
-  function row(it) {
-    return '<button class="pick" data-pickship="' + keyOf(it) + '">' + ph(it.icon, label(it), true) +
-      '<div class="pi"><div class="pn">' + esc(label(it)) + ' · ' + tierTxt(it.tier) + '</div><div class="ps">' + esc([it.flagCn, it.typeCn].filter(Boolean).join(' · ')) + '</div></div>' +
-      '<span class="pv">' + num(statNum(statMap(it.stats).health) || 0) + '</span></button>'
-  }
-  $modal.innerHTML = '<div class="scrim" data-close="1"></div><div class="sheet">' +
-    '<div class="h"><b>选' + (key === 'red' ? '红方' : '蓝方') + '舰船</b><button data-close="1">关闭</button></div>' +
-    '<div class="sb"><input id="ships" placeholder="搜舰船（' + ships.length + ' 艘）" autocomplete="off"></div>' +
-    '<div class="list" id="shiplist">' + sorted.slice(0, 40).map(row).join('') + '</div></div>'
-  const input = document.getElementById('ships')
-  const listEl = document.getElementById('shiplist')
-  input.oninput = function () {
-    const q = input.value.trim()
-    const list = q ? search(q).filter(function (x) { return x.kind === 'ship' }) : sorted
-    listEl.innerHTML = list.slice(0, 40).map(row).join('')
-  }
-  // 列表会被搜索重绘，用委托，别绑在元素上
-  $modal.onclick = function (e) {
-    if (e.target.closest('[data-close]')) { $modal.innerHTML = ''; return }
-    const p = e.target.closest('[data-pickship]')
-    if (!p) return
-    S.battle[key] = p.getAttribute('data-pickship')
-    save()
-    BATTLE = null
-    $modal.innerHTML = ''
-    renderBattle()
-  }
 }
 
 /* ── 外观设置 ─────────────────────────────────────────────────────────── */
@@ -1370,9 +1261,11 @@ function openSettings() {
     '<div class="h"><b>外观与数值</b><button data-close="1">关闭</button></div>' +
     '<div class="sb">' +
       '<div class="setlabel">数据</div>' +
+      (deferredInstall ? '<button class="pick" id="installbtn"><div class="pi"><div class="pn">安装到桌面</div><div class="ps">像 App 一样全屏打开，离线也能用</div></div><span class="pv">安装</span></button>' : '') +
       '<button class="pick" id="updbtn"><div class="pi">' +
         '<div class="pn" id="updlabel"></div><div class="ps" id="updsub"></div>' +
       '</div><span class="pv" id="updstate">检查</span></button>' +
+      '<button class="pick" id="changelogbtn"><div class="pi"><div class="pn">更新日志</div><div class="ps">最近一次数据变化：新增 / 削弱 / 加强</div></div><span class="pv">查看</span></button>' +
       '<button class="pick" id="aboutbtn"><div class="pi"><div class="pn">关于本站</div><div class="ps">数据来源、制作者与说明</div></div><span class="pv">查看</span></button>' +
       '<div class="setlabel">背景主题</div><div class="swatches">' + btns + '</div>' +
       '<div class="setlabel">数值口径</div>' +
@@ -1420,6 +1313,9 @@ function openSettings() {
     }
   })
   document.getElementById('aboutbtn').onclick = function () { showWelcome(true) }
+  document.getElementById('changelogbtn').onclick = function () { openChangelog() }
+  const ib = document.getElementById('installbtn')
+  if (ib) ib.onclick = function () { deferredInstall.prompt(); deferredInstall = null; $modal.innerHTML = '' }
   document.getElementById('updbtn').onclick = checkUpdate
   document.getElementById('sndtest').onclick = function () { clickSound() }
   document.getElementById('sndtoggle').onclick = function () {
@@ -1454,6 +1350,31 @@ function showWelcome(reopen) {
       $modal.innerHTML = ''
     }
   }
+}
+
+function openChangelog() {
+  $modal.innerHTML = '<div class="scrim" data-close="1"></div><div class="sheet"><div class="h"><b>更新日志</b><button data-close="1">关闭</button></div>' +
+    '<div class="list" id="cllist"><div class="empty">读取中…</div></div></div>'
+  Array.prototype.forEach.call($modal.querySelectorAll('[data-close]'), function (el) { el.onclick = function () { $modal.innerHTML = '' } })
+  const box = document.getElementById('cllist')
+  fetch('updates.json', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null }).then(function (d) {
+    if (!d) { box.innerHTML = '<div class="empty">还没有更新记录<br><span style="font-size:12px">第一次在线更新后会自动生成</span></div>'; return }
+    function list(title, arr) {
+      if (!arr || !arr.length) return ''
+      return '<h3>' + title + '（' + arr.length + '）</h3><div class="table">' + arr.map(function (n) {
+        return '<div class="row"><span class="k">' + esc(n) + '</span><span class="v">' + title + '</span></div>'
+      }).join('') + '</div>'
+    }
+    const changed = (d.changed || []).length
+      ? '<h3>数值改动（' + d.changed.length + '）</h3><div class="table">' + d.changed.map(function (c) {
+          return '<div class="row"><span class="k">' + esc(c.name) + '</span><span class="v">' +
+            c.diffs.map(function (x) { return esc(x[0] + ' ' + x[1] + ' → ' + x[2]) }).join('<br>') + '</span></div>'
+        }).join('') + '</div>'
+      : ''
+    box.innerHTML = '<div class="sb"><div class="ps" style="font-size:12.5px;color:var(--muted)">v' + esc(d.from) + ' → v' + esc(d.to) + ' · 数据日期 ' + esc(d.generated || '') + '</div></div>' +
+      list('新增', d.added) + list('移除', d.removed) + changed +
+      (changed || (d.added || []).length || (d.removed || []).length ? '' : '<div class="empty">这次没有数据变化</div>')
+  }).catch(function () { box.innerHTML = '<div class="empty">读不到更新日志</div>' })
 }
 
 /* ── 数据更新 ─────────────────────────────────────────────────────────── */
@@ -1638,6 +1559,27 @@ document.addEventListener('click', function (e) {
   }
   const tier = t.closest('[data-tier]')
   if (tier) { FILTER.tier = tier.dataset.tier; renderList(); return }
+  const pre = t.closest('[data-preset]')
+  if (pre && CUR) {
+    const idx = Number(pre.getAttribute('data-preset'))
+    if (idx < 0) delete S.builds[keyOf(CUR)]
+    else {
+      const p = (S.presets[keyOf(CUR)] || [])[idx]
+      if (p) S.builds[keyOf(CUR)] = Object.assign({}, p.slots)
+    }
+    save(); renderItem(CUR); return
+  }
+  const preSave = t.closest('[data-presave]')
+  if (preSave && CUR) {
+    const k = keyOf(CUR)
+    const list = S.presets[k] || (S.presets[k] = [])
+    list.push({ name: '方案 ' + (list.length + 1), slots: Object.assign({}, buildOf(CUR)) })
+    save(); renderItem(CUR); toast('已保存为方案 ' + list.length); return
+  }
+  const preClear = t.closest('[data-preset-clear]')
+  if (preClear && CUR) { delete S.presets[keyOf(CUR)]; save(); renderItem(CUR); return }
+  const sinkBtn = t.closest('#sinkcalc')
+  if (sinkBtn && CUR) { openSinkPicker(CUR); return }
   const rb = t.closest('#resetbuild')
   if (rb && CUR) { delete S.builds[keyOf(CUR)]; save(); renderItem(CUR); toast('已恢复原装'); return }
   const sb = t.closest('#savebuild')
@@ -1699,6 +1641,16 @@ document.addEventListener('input', function (e) {
 let timer = 0
 $q.addEventListener('input', function () { clearTimeout(timer); timer = setTimeout(renderList, 120) })
 window.addEventListener('hashchange', route)
+
+let deferredInstall = null
+window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); deferredInstall = e })
+
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('sw.js').catch(function () {})
+  })
+}
+
 route()
 showWelcome()
 </script>
