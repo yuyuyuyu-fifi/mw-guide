@@ -38,8 +38,8 @@ header{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 9
 .bar{display:flex;align-items:center;gap:6px;padding:calc(8px + env(safe-area-inset-top)) 14px 4px;min-height:34px}
 .bar h1{font-size:16px;margin:0;font-weight:650;flex:1;letter-spacing:.4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ver{font-size:11px;color:var(--dim);white-space:nowrap}
-.maxbtn{border:1px solid color-mix(in srgb,var(--accent) 45%,var(--line));background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent);border-radius:999px;padding:2px 9px;font-size:11px;font-weight:700;white-space:nowrap;letter-spacing:.3px}
-.maxbtn.maxed{background:var(--accent);color:#04121f;border-color:var(--accent)}
+.maxbtn{border:1.5px solid color-mix(in srgb,var(--accent) 65%,var(--line));background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent);border-radius:10px;padding:5px 11px;font-size:12.5px;font-weight:750;white-space:nowrap;letter-spacing:.4px;box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 10%,transparent)}
+.maxbtn.maxed{background:var(--accent);color:#04121f;border-color:var(--accent);box-shadow:0 0 10px color-mix(in srgb,var(--accent) 55%,transparent)}
 .iconbtn{width:32px;height:32px;display:grid;place-items:center;border-radius:10px;color:var(--accent)}
 .iconbtn:active{background:var(--panel2)}
 .search{padding:0 12px 8px}
@@ -156,8 +156,9 @@ h3::before{content:"";width:3px;height:12px;border-radius:2px;background:var(--a
 .hslot .hmeta{flex:1;min-width:0}
 .hslot .hmeta .n{font-size:13px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hslot .hmeta .s{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.hslot .lockb{font-size:10.5px;color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 40%,var(--line));border-radius:5px;padding:1px 6px;white-space:nowrap}
-.hslot .swapb{font-size:10.5px;color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 40%,var(--line));border-radius:5px;padding:1px 6px;white-space:nowrap}
+.hslot .lockb{font-size:12px;font-weight:650;color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 45%,var(--line));background:color-mix(in srgb,var(--warn) 10%,transparent);border-radius:10px;padding:9px 12px;white-space:nowrap}
+.hslot .swapb{font-size:13px;font-weight:750;color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 60%,var(--line));background:color-mix(in srgb,var(--accent) 16%,transparent);border-radius:10px;padding:9px 14px;white-space:nowrap;letter-spacing:.5px}
+.hslot .swapb:active{background:var(--accent);color:#04121f}
 
 /* compare */
 .cmphead{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:10px;scrollbar-width:none}
@@ -399,7 +400,7 @@ applyTheme()
 function syncMaxBtn() {
   const b = document.getElementById('maxbtn')
   if (!b) return
-  b.textContent = MAXED ? '满级' : '基础'
+  b.textContent = MAXED ? '数值 满级' : '数值 基础'
   b.classList.toggle('maxed', MAXED)
 }
 
@@ -412,7 +413,7 @@ const $ver = document.getElementById('ver')
 const $searchbar = document.getElementById('searchbar')
 const $tabs = document.getElementById('tabs')
 const $modal = document.getElementById('modal')
-$ver.textContent = 'v' + (D.version || '') + ' · ' + ITEMS.length + ' 条'
+$ver.textContent = 'v' + (D.version || '')
 
 const FILTER = { type: '', tier: '', sort: '' }
 
@@ -1564,8 +1565,10 @@ function openPartSheet(it, part) {
 function openPart(it, i) {
   const part = loadout(it)[i]
   if (!part) return
-  if (part.detail) { location.hash = '#/item/equips/' + encodeURIComponent(part.detail.id); return }
-  if (part.stats) { openPartSheet(it, part); return }
+  const e = slotEquip(it, part) // 换装后要用当前装备，不能用 load 里的原装
+  if (e.item) { location.hash = '#/item/equips/' + encodeURIComponent(e.item.id); return }
+  const cur = { label: e.label, slot: part.slot, locked: part.locked, n: part.n, stats: e.stats }
+  if (cur.stats) { openPartSheet(it, cur); return }
   toast('这件没有单独的数值')
 }
 
