@@ -626,14 +626,29 @@ function totalsOf(it) {
     const kind = e.item ? e.item.kind : 'weapon'
     const isPlane = kind === 'aircraft' || kind === 'helicopter' || kind === 'unmanned'
     if (isPlane) {
-      // 飞机是「一轮出动打一发」，没有 dpm 字段：分均 = 单轮 ÷ 冷却 × 60
-      const per = statNum(m.burstShip) || 0
-      const cd = statNum(m.cooldown) || 30
-      shipDpm += (per / cd) * 60 * p.n
-      salvoShip += per * p.n
+      // 飞机没有自己的 dpm：要拆开算——每件挂载武器有各自的冷却，分别按它的 dpm 相加。
+      const subs = Array.isArray(e.item && e.item.fixed) ? e.item.fixed : []
+      let subDpm = 0
+      let subSalvo = 0
+      for (const f of subs) {
+        const fm = statMap(f.stats)
+        const amt = Number(f.amount) || 1
+        const fd = statNum(fm.dpm)
+        const fBurst = statNum(fm.burstTotal) || (statNum(fm.damage) || 0) * (statNum(fm.launchCount) || 1)
+        subDpm += (fd != null ? fd : (fBurst * 60) / (statNum(fm.reloadTime) || 10)) * amt
+        subSalvo += fBurst * amt
+      }
+      if (!subs.length) {
+        const per = statNum(m.burstShip) || 0
+        const cd = statNum(m.cooldown) || 30
+        subDpm = (per / cd) * 60
+        subSalvo = per
+      }
+      shipDpm += subDpm * p.n
+      salvoShip += (statNum(m.burstShip) || subSalvo) * p.n
       const perAir = statNum(m.burstAir) || 0
       if (perAir) {
-        airDpm += (perAir / cd) * 60 * p.n
+        airDpm += (perAir / (statNum(m.cooldown) || 30)) * 60 * p.n
         salvoAir += perAir * p.n
       }
       weight += (statNum(m.weight) || 0) * p.n
@@ -973,9 +988,21 @@ function renderSlots(it) {
     const dpmV = statNum(mm.dpm)
     const isPlane = e.item && (e.item.kind === 'aircraft' || e.item.kind === 'helicopter' || e.item.kind === 'unmanned')
     const per = dpmV != null ? dpmV : statNum(mm.burstShip)
-    const cd = statNum(mm.cooldown)
     const perLabel = dpmV != null ? '分均 ' : '单轮 '
-    const eff = per == null ? '' : perLabel + num(per * p.n) + (p.n > 1 ? '（单件 ' + num(per) + '）' : '') + (isPlane && cd ? ' · 冷却 ' + num(cd) + ' 秒' : '')
+    let eff = per == null ? '' : perLabel + num(per * p.n) + (p.n > 1 ? '（单件 ' + num(per) + '）' : '')
+    if (isPlane) {
+      // 飞机的分均要把挂载逐件加起来
+      const subs = Array.isArray(e.item.fixed) ? e.item.fixed : []
+      let subDpm = 0
+      for (const f of subs) {
+        const fm = statMap(f.stats)
+        const amt = Number(f.amount) || 1
+        const fd = statNum(fm.dpm)
+        subDpm += (fd != null ? fd : ((statNum(fm.burstTotal) || 0) * 60) / (statNum(fm.reloadTime) || 10)) * amt
+      }
+      if (subDpm) eff = '分均 ' + num(subDpm * p.n) + (p.n > 1 ? '（单机 ' + num(subDpm) + '）' : '') + ' · 单轮 ' + num(per == null ? 0 : per)
+      else if (per != null) eff = '单轮 ' + num(per * p.n)
+    }
     const sub = [p.slot, eff, e.swapped ? '已换装' : ''].filter(Boolean).join(' · ')
     const tag = p.locked ? '<span class="lockb">锁定</span>' : '<span class="swapb" data-swap="' + p.i + '">换装</span>'
     return '<div class="hslot" data-part="' + p.i + '">' +
@@ -1107,14 +1134,27 @@ function simWeapons(it, distance) {
     const m = statMap(e.stats)
     const kind = e.item ? e.item.kind : 'weapon'
     if (kind === 'aircraft' || kind === 'helicopter' || kind === 'unmanned') {
-      // 飞机：一轮出动 = 对舰单轮伤害，冷却后下一轮；不受水面射程限制
-      const per = statNum(m.burstShip) || 0
-      if (!per) continue
-      const cd = statNum(m.cooldown) || 30
-      ws.push({
-        name: e.label, n: p.n, shot: per * p.n, reload: cd, lock: 0, travel: 0,
-        inRange: true, why: '', next: cd * 0.5, count: 0, dmg: 0
-      })
+      // 飞机：拆成一件件挂载武器，各自按自己的冷却开火（不受水面射程限制）
+      const subs = Array.isArray(e.item && e.item.fixed) ? e.item.fixed : []
+      if (!subs.length) {
+        const per = statNum(m.burstShip) || 0
+        if (per) {
+          const cd = statNum(m.cooldown) || 30
+          ws.push({ name: e.label, n: p.n, shot: per * p.n, reload: cd, lock: 0, travel: 0, inRange: true, why: '', next: cd * 0.5, count: 0, dmg: 0 })
+        }
+        continue
+      }
+      for (const f of subs) {
+        const fm = statMap(f.stats)
+        const amt = Number(f.amount) || 1
+        const per = statNum(fm.burstTotal) || (statNum(fm.damage) || 0) * (statNum(fm.launchCount) || 1)
+        if (!per) continue
+        const rl = statNum(fm.reloadTime) || 10
+        ws.push({
+          name: e.label + ' · ' + ((f.cn || f.name) || '武器'), n: p.n, shot: per * amt * p.n,
+          reload: rl, lock: 0, travel: 0, inRange: true, why: '', next: rl * 0.5, count: 0, dmg: 0
+        })
+      }
       continue
     }
     const tt = m.targetType == null ? '' : String(statNum(m.targetType))
