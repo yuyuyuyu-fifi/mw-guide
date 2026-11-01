@@ -1072,7 +1072,7 @@ function renderSlots(it) {
         ['隐身', statText('stealth', own) || '—'],
         ['槽位', t.slots + ' 个（' + t.locked + ' 锁定）'],
       ]
-  const statRowsHtml = statList.map(function (r) {
+  const statRowsHtml = statList.filter(function (r) { return r[1] && r[1] !== '—' }).map(function (r) {
     return '<div class="prow"><span>' + r[0] + '</span><b>' + esc(r[1]) + '</b></div>'
   }).join('')
 
