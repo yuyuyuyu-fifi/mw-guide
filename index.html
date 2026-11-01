@@ -32,10 +32,16 @@ html,body{margin:0;padding:0}
 
 /* ── 动态海面 / 港口背景 ───────────────────────────────────────── */
 .bgfx{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none}
+.reflect{position:absolute;left:50%;bottom:30vh;width:120px;height:26vh;transform:translateX(-50%);
+  background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 26%,transparent),transparent 85%);
+  filter:blur(18px);opacity:.35;mix-blend-mode:screen;animation:reflect 9s ease-in-out infinite alternate}
+@keyframes reflect{from{opacity:.32;transform:translateX(-50%) scaleY(.94)}to{opacity:.6;transform:translateX(-50%) scaleY(1.04)}}
 .skyglow{position:absolute;left:-10%;right:-10%;top:-12%;height:62%;
   background:radial-gradient(60% 70% at 50% 100%,color-mix(in srgb,var(--accent) 22%,transparent),transparent 70%);
   opacity:.55}
-.harbor{position:absolute;left:0;right:0;bottom:34vh;height:2px}
+.harbor-skyline{position:absolute;left:0;right:0;bottom:43vh;height:50px;background:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%27600%27%20height%3D%2750%27%20viewBox%3D%270%200%20600%2050%27%3E%3Cg%20fill%3D%27%239fd4ff%27%20fill-opacity%3D%270.07%27%3E%3Crect%20x%3D%2720%27%20y%3D%2728%27%20width%3D%2746%27%20height%3D%2722%27%2F%3E%3Crect%20x%3D%2774%27%20y%3D%2734%27%20width%3D%2730%27%20height%3D%2716%27%2F%3E%3Crect%20x%3D%27112%27%20y%3D%2716%27%20width%3D%275%27%20height%3D%2734%27%2F%3E%3Crect%20x%3D%2798%27%20y%3D%2716%27%20width%3D%2734%27%20height%3D%273%27%2F%3E%3Crect%20x%3D%27180%27%20y%3D%2733%27%20width%3D%2760%27%20height%3D%2717%27%2F%3E%3Crect%20x%3D%27250%27%20y%3D%2724%27%20width%3D%2732%27%20height%3D%2726%27%2F%3E%3Crect%20x%3D%27292%27%20y%3D%2714%27%20width%3D%274%27%20height%3D%2736%27%2F%3E%3Crect%20x%3D%27280%27%20y%3D%2714%27%20width%3D%2730%27%20height%3D%273%27%2F%3E%3Crect%20x%3D%27340%27%20y%3D%2736%27%20width%3D%2770%27%20height%3D%2714%27%2F%3E%3Crect%20x%3D%27420%27%20y%3D%2721%27%20width%3D%276%27%20height%3D%2729%27%2F%3E%3Crect%20x%3D%27406%27%20y%3D%2721%27%20width%3D%2738%27%20height%3D%273%27%2F%3E%3Crect%20x%3D%27470%27%20y%3D%2732%27%20width%3D%2752%27%20height%3D%2718%27%2F%3E%3Crect%20x%3D%27530%27%20y%3D%2725%27%20width%3D%2724%27%20height%3D%2725%27%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") repeat-x;background-size:600px 50px;background-position:0 bottom;opacity:.55;animation:skyline 140s linear infinite}
+@keyframes skyline{from{transform:translate3d(0,0,0)}to{transform:translate3d(-600px,0,0)}}
+.harbor{position:absolute;left:0;right:0;bottom:43vh;height:2px}
 .harbor i{position:absolute;bottom:0;width:3px;height:3px;border-radius:50%;background:#ffe6b0;
   box-shadow:0 0 6px 1px rgba(255,214,140,.55);animation:blink 7s ease-in-out infinite alternate}
 .harbor i:nth-child(1){left:12%;animation-delay:0s}
@@ -50,9 +56,9 @@ html,body{margin:0;padding:0}
   transform-origin:50% 100%;
   background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 10%,transparent),transparent 45%)}
 .wave{position:absolute;left:0;width:200%;height:140px;background-repeat:repeat-x;background-position:0 bottom;will-change:transform}
-.wave.w1{bottom:24vh;height:140px;background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%27600%27%20height%3D%27140%27%20viewBox%3D%270%200%20600%20140%27%3E%3Cpath%20d%3D%27M0%2070%20C100%2052%20200%2088%20300%2070%20S500%2052%20600%2070%20L600%20140%20L0%20140%20Z%27%20fill%3D%27%23ffffff%27%20fill-opacity%3D%270.14%27%2F%3E%3C%2Fsvg%3E");background-size:600px 140px;animation:drift 64s linear infinite;opacity:.8}
-.wave.w2{bottom:14vh;height:120px;background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%27600%27%20height%3D%27120%27%20viewBox%3D%270%200%20600%20120%27%3E%3Cpath%20d%3D%27M0%2060%20C100%2042%20200%2078%20300%2060%20S500%2042%20600%2060%20L600%20120%20L0%20120%20Z%27%20fill%3D%27%23cfeeff%27%20fill-opacity%3D%270.18%27%2F%3E%3C%2Fsvg%3E");background-size:600px 120px;animation:drift 44s linear infinite reverse;opacity:.9}
-.wave.w3{bottom:4vh;height:90px;background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%27600%27%20height%3D%2790%27%20viewBox%3D%270%200%20600%2090%27%3E%3Cpath%20d%3D%27M0%2045%20C100%2027%20200%2063%20300%2045%20S500%2027%20600%2045%20L600%2090%20L0%2090%20Z%27%20fill%3D%27%238fd8ff%27%20fill-opacity%3D%270.16%27%2F%3E%3C%2Fsvg%3E");background-size:600px 90px;animation:drift 28s linear infinite;opacity:.85}
+.wave.w1{bottom:24vh;height:140px;background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%27600%27%20height%3D%27150%27%20viewBox%3D%270%200%20600%20150%27%3E%3Cpath%20d%3D%27M0%2078%20C100%2044%20200%20112%20300%2078%20C400%2044%20500%20112%20600%2078%20L600%20150%20L0%20150%20Z%27%20fill%3D%27%23ffffff%27%20fill-opacity%3D%270.07%27%2F%3E%3Cpath%20d%3D%27M0%2078%20C100%2044%20200%20112%20300%2078%20C400%2044%20500%20112%20600%2078%27%20fill%3D%27none%27%20stroke%3D%27%23d6f2ff%27%20stroke-opacity%3D%270.10%27%20stroke-width%3D%271.4%27%2F%3E%3C%2Fsvg%3E");background-size:600px 140px;animation:drift 64s linear infinite;opacity:.8}
+.wave.w2{bottom:14vh;height:120px;background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%27600%27%20height%3D%27130%27%20viewBox%3D%270%200%20600%20130%27%3E%3Cpath%20d%3D%27M0%2066%20C100%2038%20200%2094%20300%2066%20C400%2038%20500%2094%20600%2066%20L600%20130%20L0%20130%20Z%27%20fill%3D%27%23cfeeff%27%20fill-opacity%3D%270.10%27%2F%3E%3Cpath%20d%3D%27M0%2066%20C100%2038%20200%2094%20300%2066%20C400%2038%20500%2094%20600%2066%27%20fill%3D%27none%27%20stroke%3D%27%23d6f2ff%27%20stroke-opacity%3D%270.16%27%20stroke-width%3D%271.4%27%2F%3E%3C%2Fsvg%3E");background-size:600px 120px;animation:drift 44s linear infinite reverse;opacity:.9}
+.wave.w3{bottom:4vh;height:90px;background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%27600%27%20height%3D%27100%27%20viewBox%3D%270%200%20600%20100%27%3E%3Cpath%20d%3D%27M0%2052%20C100%2030%20200%2074%20300%2052%20C400%2030%20500%2074%20600%2052%20L600%20100%20L0%20100%20Z%27%20fill%3D%27%238fd8ff%27%20fill-opacity%3D%270.12%27%2F%3E%3Cpath%20d%3D%27M0%2052%20C100%2030%20200%2074%20300%2052%20C400%2030%20500%2074%20600%2052%27%20fill%3D%27none%27%20stroke%3D%27%23d6f2ff%27%20stroke-opacity%3D%270.22%27%20stroke-width%3D%271.4%27%2F%3E%3C%2Fsvg%3E");background-size:600px 90px;animation:drift 28s linear infinite;opacity:.85}
 @keyframes drift{from{transform:translate3d(0,0,0)}to{transform:translate3d(-600px,0,0)}}
 @keyframes breathe{from{transform:translateY(0)}to{transform:translateY(-8px)}}
 body.pause-fx .wave,body.pause-fx .harbor i{animation-play-state:paused}
@@ -181,6 +187,8 @@ h3::before{content:"";width:4px;height:13px;background:linear-gradient(180deg,va
 .stage::before{left:8px;top:8px;border-right:0;border-bottom:0}
 .stage::after{right:8px;bottom:8px;border-left:0;border-top:0}
 .stage .big{aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;position:relative}
+.stage .big .ph{animation:float 7s ease-in-out infinite alternate}
+@keyframes float{from{transform:translateY(0)}to{transform:translateY(-5px)}}
 .stage .big::after{content:"";position:absolute;left:0;right:0;bottom:0;height:52px;z-index:2;pointer-events:none;
   background:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%27600%27%20height%3D%2790%27%20viewBox%3D%270%200%20600%2090%27%3E%3Cpath%20d%3D%27M0%2045%20C100%2027%20200%2063%20300%2045%20S500%2027%20600%2045%20L600%2090%20L0%2090%20Z%27%20fill%3D%27%238fd8ff%27%20fill-opacity%3D%270.11%27%2F%3E%3C%2Fsvg%3E") repeat-x;background-size:600px 90px;background-position:0 bottom;opacity:.6;animation:drift 26s linear infinite}
 .stage .big::before{content:"";position:absolute;inset:-40%;z-index:2;pointer-events:none;
@@ -309,6 +317,8 @@ nav.tabs .dot{position:absolute;top:6px;right:calc(50% - 20px);background:var(--
 <body>
 <div class="bgfx" aria-hidden="true">
   <div class="skyglow"></div>
+  <div class="reflect"></div>
+  <div class="harbor-skyline"></div>
   <div class="harbor"><i></i><i></i><i></i><i></i><i></i><i></i></div>
   <div class="sea">
     <div class="wave w1"></div>
@@ -1921,6 +1931,16 @@ window.addEventListener('hashchange', route)
 
 let deferredInstall = null
 window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); deferredInstall = e })
+
+let bgRaf = 0
+window.addEventListener('scroll', function () {
+  if (bgRaf) return
+  bgRaf = requestAnimationFrame(function () {
+    bgRaf = 0
+    const fx = document.querySelector('.bgfx')
+    if (fx) fx.style.transform = 'translate3d(0,' + Math.min(70, window.scrollY * 0.08) + 'px,0)'
+  })
+}, { passive: true })
 
 document.addEventListener('visibilitychange', function () {
   document.body.classList.toggle('pause-fx', document.hidden)
