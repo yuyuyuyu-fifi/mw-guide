@@ -457,7 +457,7 @@ const rankScore = (it) => Number(it.tier || 0) * 10 + Number(it.rarity || 0)
 
 /* ── 数值 ─────────────────────────────────────────────────────────────── */
 const ORDER = ['health','speed','forsage','mobility','viewRange','exposureAir','exposureSurface','exposureUnderwater','stealth','moveVisibilityPenalty','radiostation','o2Capacity','o2DepletionTime','o2RegenTime','targetType','controlType','dpm','damage','burstTotal','burstMount','burstShip','burstAir','range','minRange','reloadTime','launchCount','clipSize','ammunition','lockTime','launchDelay','maxSpeed','startSpeed','accelTime','spread','accuracyMax','explosionDamage','explosionRadius','detonateRadius','aaImmune','decoyImmune','firePenalty','airReserve','squadSize','cooldown','supplyCost','rating','level','critChance','torpedoHp','torpedoMaxSpeed','spewerCount','spewerDamage','overheatShots','overheatCooling','ricochet','ricochetScheme','ricochetChance','ricochetAngle','underwater','rocketTorpedo','separateRange','altitude','splitFire','magazine','bulletHp','displacement','length','width','weight','weightBody']
-const METRIC = { ship:['health','speed','mobility','exposureSurface'], weapon:['dpm','damage','range','reloadTime'], aircraft:['burstShip','burstAir','health','speed'], helicopter:['health','speed','burstShip','cooldown'], unmanned:['health','speed','burstShip','cooldown'] }
+const METRIC = { ship:['health','speed','mobility','exposureSurface'], weapon:['dpm','damage','range','reloadTime'], aircraft:['burstShip','health','speed','forsage'], helicopter:['health','speed','burstShip','cooldown'], unmanned:['health','speed','burstShip','cooldown'] }
 const PRIMARY = { ship:'health', weapon:'dpm', aircraft:'burstShip', helicopter:'health', unmanned:'health' }
 const LOWER_BETTER = new Set(['exposureAir','exposureSurface','exposureUnderwater','reloadTime','weight','spread','moveVisibilityPenalty','firePenalty'])
 const meta = (k) => FIELD[k] || null
@@ -630,12 +630,16 @@ function totalsOf(it) {
       const subs = Array.isArray(e.item && e.item.fixed) ? e.item.fixed : []
       let subDpm = 0
       let subSalvo = 0
+      // 游戏里舰载机的挂载武器不随升级提升：口径用「基础 dpm × 挂载数」
       for (const f of subs) {
         const fm = statMap(f.stats)
         const amt = Number(f.amount) || 1
-        const fd = statNum(fm.dpm)
-        const fBurst = statNum(fm.burstTotal) || (statNum(fm.damage) || 0) * (statNum(fm.launchCount) || 1)
-        subDpm += (fd != null ? fd : (fBurst * 60) / (statNum(fm.reloadTime) || 10)) * amt
+        const fd = fm.dpm ? fm.dpm.base : null
+        const fBurst = (fm.burstTotal && fm.burstTotal.base) || 0
+        const fReload = (fm.reloadTime && fm.reloadTime.base) || 10
+        const perMin = fd != null ? fd : (fBurst * 60) / fReload
+        const tt = fm.targetType && fm.targetType.base ? String(fm.targetType.base) : ''
+        subDpm += perMin * amt
         subSalvo += fBurst * amt
       }
       if (!subs.length) {
@@ -671,7 +675,23 @@ function totalsOf(it) {
   const own = statMap(it.stats)
   const officialShip = statNum(own.burstShip)
   const officialAir = statNum(own.burstAir)
+  // 飞机：按挂载逐件算「对水面 / 对空」，最大伤害再乘编队数
+  const plane = (function () {
+    if (!(it.kind === 'aircraft' || it.kind === 'helicopter' || it.kind === 'unmanned')) return null
+    let surface = 0, air = 0
+    for (const f of (Array.isArray(it.fixed) ? it.fixed : [])) {
+      const fm = statMap(f.stats)
+      const amt = Number(f.amount) || 1
+      const fd = fm.dpm ? fm.dpm.base : ((fm.burstTotal && fm.burstTotal.base) || 0) * 60 / ((fm.reloadTime && fm.reloadTime.base) || 10)
+      const tt = fm.targetType && fm.targetType.base ? String(fm.targetType.base) : ''
+      if (tt.indexOf('水面') >= 0) surface += fd * amt
+      if (tt.indexOf('空中') >= 0) air += fd * amt
+    }
+    const squad = statNum(own.squadSize) || 1
+    return { surface: Math.round(surface), air: Math.round(air), max: Math.round(surface * squad), squad: squad }
+  })()
   return {
+    plane: plane,
     shipDpm: Math.round(shipDpm),
     airDpm: Math.round(airDpm),
     salvoShip: officialShip != null ? officialShip : Math.round(salvoShip),
@@ -971,14 +991,28 @@ function renderSlots(it) {
   const own = statMap(it.stats)
   const rar = Number(it.rarity || 0)
   // 只放原始数据里有的舰体属性；合计算法各站/游戏口径不同，放到页脚注明，不当主指标
-  const statRowsHtml = [
-    ['耐久', num(statNum(own.health) || 0)],
-    ['速度', statText('speed', own) || '—'],
-    ['机动性', statText('mobility', own) || '—'],
-    ['视野范围', statText('viewRange', own) || '—'],
-    ['隐身', statText('stealth', own) || '—'],
-    ['槽位', t.slots + ' 个（' + t.locked + ' 锁定）'],
-  ].map(function (r) {
+  const statList = t.plane
+    ? [
+        ['总爆发伤害', num(statNum(own.burstShip) || 0)],
+        ['每分钟伤害（对水面）', num(t.plane.surface)],
+        ['每分钟伤害（对空）', num(t.plane.air)],
+        ['每分钟最大伤害（×' + t.plane.squad + ' 编队）', num(t.plane.max)],
+        ['耐久', num(statNum(own.health) || 0)],
+        ['速度', statText('speed', own) || '—'],
+        ['加力速度', statText('forsage', own) || '—'],
+        ['机动性', statText('mobility', own) || '—'],
+        ['视野范围', statText('viewRange', own) || '—'],
+      ]
+    : [
+        ['耐久', num(statNum(own.health) || 0)],
+        ['速度', statText('speed', own) || '—'],
+        ['加力速度', statText('forsage', own) || '—'],
+        ['机动性', statText('mobility', own) || '—'],
+        ['视野范围', statText('viewRange', own) || '—'],
+        ['隐身', statText('stealth', own) || '—'],
+        ['槽位', t.slots + ' 个（' + t.locked + ' 锁定）'],
+      ]
+  const statRowsHtml = statList.map(function (r) {
     return '<div class="prow"><span>' + r[0] + '</span><b>' + esc(r[1]) + '</b></div>'
   }).join('')
 
