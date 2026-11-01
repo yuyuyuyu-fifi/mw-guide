@@ -29,12 +29,41 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 [hidden]{display:none!important}
 html,body{margin:0;padding:0}
+
+/* ── 动态海面 / 港口背景 ───────────────────────────────────────── */
+.bgfx{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none}
+.skyglow{position:absolute;left:-10%;right:-10%;top:-12%;height:62%;
+  background:radial-gradient(60% 70% at 50% 100%,color-mix(in srgb,var(--accent) 22%,transparent),transparent 70%);
+  opacity:.55}
+.harbor{position:absolute;left:0;right:0;bottom:34vh;height:2px}
+.harbor i{position:absolute;bottom:0;width:3px;height:3px;border-radius:50%;background:#ffe6b0;
+  box-shadow:0 0 6px 1px rgba(255,214,140,.55);animation:blink 7s ease-in-out infinite alternate}
+.harbor i:nth-child(1){left:12%;animation-delay:0s}
+.harbor i:nth-child(2){left:23%;animation-delay:1.4s;height:2px;width:2px}
+.harbor i:nth-child(3){left:37%;animation-delay:2.7s}
+.harbor i:nth-child(4){left:58%;animation-delay:.8s;height:2px;width:2px}
+.harbor i:nth-child(5){left:72%;animation-delay:3.6s}
+.harbor i:nth-child(6){left:88%;animation-delay:2.1s}
+@keyframes blink{0%{opacity:.35}50%{opacity:1}100%{opacity:.45}}
+.harbor::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--accent) 60%,transparent),transparent);opacity:.6}
+.sea{position:absolute;left:0;right:0;bottom:0;height:46vh;overflow:hidden;animation:breathe 9s ease-in-out infinite alternate;
+  transform-origin:50% 100%;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 10%,transparent),transparent 45%)}
+.wave{position:absolute;left:0;width:200%;height:140px;background-repeat:repeat-x;background-position:0 bottom;will-change:transform}
+.wave.w1{bottom:24vh;height:140px;background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%27600%27%20height%3D%27140%27%20viewBox%3D%270%200%20600%20140%27%3E%3Cpath%20d%3D%27M0%2070%20C100%2052%20200%2088%20300%2070%20S500%2052%20600%2070%20L600%20140%20L0%20140%20Z%27%20fill%3D%27%23ffffff%27%20fill-opacity%3D%270.14%27%2F%3E%3C%2Fsvg%3E");background-size:600px 140px;animation:drift 64s linear infinite;opacity:.8}
+.wave.w2{bottom:14vh;height:120px;background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%27600%27%20height%3D%27120%27%20viewBox%3D%270%200%20600%20120%27%3E%3Cpath%20d%3D%27M0%2060%20C100%2042%20200%2078%20300%2060%20S500%2042%20600%2060%20L600%20120%20L0%20120%20Z%27%20fill%3D%27%23cfeeff%27%20fill-opacity%3D%270.18%27%2F%3E%3C%2Fsvg%3E");background-size:600px 120px;animation:drift 44s linear infinite reverse;opacity:.9}
+.wave.w3{bottom:4vh;height:90px;background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%27600%27%20height%3D%2790%27%20viewBox%3D%270%200%20600%2090%27%3E%3Cpath%20d%3D%27M0%2045%20C100%2027%20200%2063%20300%2045%20S500%2027%20600%2045%20L600%2090%20L0%2090%20Z%27%20fill%3D%27%238fd8ff%27%20fill-opacity%3D%270.16%27%2F%3E%3C%2Fsvg%3E");background-size:600px 90px;animation:drift 28s linear infinite;opacity:.85}
+@keyframes drift{from{transform:translate3d(0,0,0)}to{transform:translate3d(-600px,0,0)}}
+@keyframes breathe{from{transform:translateY(0)}to{transform:translateY(-8px)}}
+body.pause-fx .wave,body.pause-fx .harbor i{animation-play-state:paused}
+@media (prefers-reduced-motion: reduce){.wave,.harbor i{animation:none}}
+
 body{background:
      radial-gradient(120% 70% at 50% -10%,color-mix(in srgb,var(--accent) 12%,transparent),transparent 60%),
      linear-gradient(180deg,var(--bg2),var(--bg) 40%);
      color:var(--text);font:15px/1.5 system-ui,-apple-system,"PingFang SC","Noto Sans CJK SC",sans-serif;
      padding-bottom:calc(62px + env(safe-area-inset-bottom));overscroll-behavior-y:contain}
-body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+body::before{content:"";position:fixed;inset:0;z-index:1;pointer-events:none;
   background-image:
     linear-gradient(color-mix(in srgb,var(--accent) 8%,transparent) 1px,transparent 1px),
     linear-gradient(90deg,color-mix(in srgb,var(--accent) 8%,transparent) 1px,transparent 1px);
@@ -42,7 +71,7 @@ body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
   -webkit-mask-image:radial-gradient(120% 75% at 50% 0%,#000 25%,transparent 78%);
   mask-image:radial-gradient(120% 75% at 50% 0%,#000 25%,transparent 78%);
   opacity:.5}
-main{position:relative;z-index:1}
+main{position:relative;z-index:2}
 button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
 a{color:inherit;text-decoration:none}
 
@@ -152,6 +181,8 @@ h3::before{content:"";width:4px;height:13px;background:linear-gradient(180deg,va
 .stage::before{left:8px;top:8px;border-right:0;border-bottom:0}
 .stage::after{right:8px;bottom:8px;border-left:0;border-top:0}
 .stage .big{aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;position:relative}
+.stage .big::after{content:"";position:absolute;left:0;right:0;bottom:0;height:52px;z-index:2;pointer-events:none;
+  background:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%27600%27%20height%3D%2790%27%20viewBox%3D%270%200%20600%2090%27%3E%3Cpath%20d%3D%27M0%2045%20C100%2027%20200%2063%20300%2045%20S500%2027%20600%2045%20L600%2090%20L0%2090%20Z%27%20fill%3D%27%238fd8ff%27%20fill-opacity%3D%270.11%27%2F%3E%3C%2Fsvg%3E") repeat-x;background-size:600px 90px;background-position:0 bottom;opacity:.6;animation:drift 26s linear infinite}
 .stage .big::before{content:"";position:absolute;inset:-40%;z-index:2;pointer-events:none;
   background:linear-gradient(115deg,transparent 42%,color-mix(in srgb,var(--accent) 14%,transparent) 50%,transparent 58%);
   animation:sweep 7s linear infinite}
@@ -276,6 +307,16 @@ nav.tabs .dot{position:absolute;top:6px;right:calc(50% - 20px);background:var(--
 </style>
 </head>
 <body>
+<div class="bgfx" aria-hidden="true">
+  <div class="skyglow"></div>
+  <div class="harbor"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="sea">
+    <div class="wave w1"></div>
+    <div class="wave w2"></div>
+    <div class="wave w3"></div>
+  </div>
+</div>
+
 <header>
   <div class="bar">
     <button id="back" class="iconbtn" hidden aria-label="返回">
@@ -1311,6 +1352,182 @@ function openSwap(it, part) {
   })
 }
 
+/* ── 斗蛐蛐 ───────────────────────────────────────────────────────────── */
+let BATTLE = null
+const KM_PER_KN_S = 0.001852
+
+function simWeapons(it, distance) {
+  const ws = []
+  for (const p of loadout(it)) {
+    const e = slotEquip(it, p)
+    const m = statMap(e.stats)
+    const kind = e.item ? e.item.kind : 'weapon'
+    if (kind === 'aircraft' || kind === 'helicopter' || kind === 'unmanned') {
+      const subs = Array.isArray(e.item && e.item.fixed) ? e.item.fixed : []
+      if (!subs.length) {
+        const per = statNum(m.burstShip) || 0
+        if (per) {
+          const cd = statNum(m.cooldown) || 30
+          ws.push({ name: e.label, n: p.n, shot: per * p.n, reload: cd, lock: 0, travel: 0, inRange: true, why: '', next: cd * 0.5, count: 0, dmg: 0 })
+        }
+        continue
+      }
+      for (const f of subs) {
+        const fm = statMap(f.stats)
+        const amt = Number(f.amount) || 1
+        const per = statNum(fm.burstTotal) || (statNum(fm.damage) || 0) * (statNum(fm.launchCount) || 1)
+        if (!per) continue
+        const rl = statNum(fm.reloadTime) || 10
+        ws.push({ name: e.label + ' · ' + ((f.cn || f.name) || '武器'), n: p.n, shot: per * amt * p.n, reload: rl, lock: 0, travel: 0, inRange: true, why: '', next: rl * 0.5, count: 0, dmg: 0 })
+      }
+      continue
+    }
+    const tt = m.targetType == null ? '' : String(statNum(m.targetType))
+    const vsSurface = tt.indexOf('水面') >= 0
+    const range = statNum(m.range)
+    const minRange = statNum(m.minRange) || 0
+    const reload = statNum(m.reloadTime) || 10
+    const dpm = statNum(m.dpm)
+    const per = dpm != null ? (dpm * reload) / 60 : (statNum(m.burstTotal) || (statNum(m.damage) || 0) * (statNum(m.launchCount) || 1))
+    if (!per) continue
+    const lock = statNum(m.lockTime) || 0
+    const speed = statNum(m.maxSpeed) || statNum(m.startSpeed) || 0
+    const travel = speed > 0 ? distance / (speed * KM_PER_KN_S) : 0
+    let why = ''
+    if (!vsSurface) why = tt ? '只打' + tt : '非对舰武器'
+    else if (range != null && range < distance) why = '射程 ' + num(range) + ' km'
+    else if (distance < minRange) why = '最小射程 ' + num(minRange) + ' km'
+    ws.push({ name: e.label, n: p.n, shot: per * p.n, reload: reload, lock: lock, travel: travel, inRange: why === '', why: why, next: lock + reload * 0.5, count: 0, dmg: 0 })
+  }
+  return ws
+}
+
+function simulate(a, b, distance) {
+  const D0 = distance
+  function mk(it) {
+    const hp = statNum(statMap(it.stats).health) || 100000
+    return { it: it, hp: hp, max: hp, ws: simWeapons(it, D0) }
+  }
+  const R = mk(a), B = mk(b)
+  const pending = []
+  const series = []
+  let t = 0, nextSample = 0
+  const step = 0.05
+  for (; t <= 300; t += step) {
+    for (let i = pending.length - 1; i >= 0; i--) {
+      if (pending[i].at <= t) {
+        if (pending[i].to === 'R') R.hp -= pending[i].dmg
+        else B.hp -= pending[i].dmg
+        pending.splice(i, 1)
+      }
+    }
+    for (const w of R.ws) {
+      if (!w.inRange) continue
+      while (t >= w.next) { pending.push({ at: t + w.travel, to: 'B', dmg: w.shot }); w.dmg += w.shot; w.count++; w.next += w.reload }
+    }
+    for (const w of B.ws) {
+      if (!w.inRange) continue
+      while (t >= w.next) { pending.push({ at: t + w.travel, to: 'R', dmg: w.shot }); w.dmg += w.shot; w.count++; w.next += w.reload }
+    }
+    if (t >= nextSample) { series.push([t, Math.max(0, R.hp) / R.max, Math.max(0, B.hp) / B.max]); nextSample += 0.5 }
+    if (R.hp <= 0 || B.hp <= 0) break
+  }
+  const decided = R.hp <= 0 || B.hp <= 0
+  const winner = R.hp <= 0 && B.hp <= 0 ? null : B.hp <= 0 ? R : R.hp <= 0 ? B : null
+  return { R: R, B: B, winner: winner, time: Math.min(t, 300), series: series, decided: decided, dist: D0 }
+}
+
+function hpChart(series) {
+  if (!series.length) return ''
+  const W = 320, H = 132, P = 10
+  const tMax = Math.max(1, series[series.length - 1][0])
+  function px(t) { return P + (t / tMax) * (W - 2 * P) }
+  function py(v) { return H - P - v * (H - 2 * P) }
+  function line(i) { return series.map(function (p, k) { return (k ? 'L' : 'M') + px(p[0]).toFixed(1) + ' ' + py(p[i]).toFixed(1) }).join(' ') }
+  return '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg">' +
+    '<line x1="' + P + '" y1="' + (H - P) + '" x2="' + (W - P) + '" y2="' + (H - P) + '" stroke="var(--line)" stroke-width="1"/>' +
+    '<line x1="' + P + '" y1="' + P + '" x2="' + P + '" y2="' + (H - P) + '" stroke="var(--line)" stroke-width="1"/>' +
+    '<path d="' + line(1) + '" fill="none" stroke="var(--accent)" stroke-width="2"/>' +
+    '<path d="' + line(2) + '" fill="none" stroke="#ff6b6b" stroke-width="2"/>' +
+    '<text x="' + (W - P) + '" y="' + (H - P + 12) + '" text-anchor="end" font-size="10" fill="var(--muted)">' + tMax.toFixed(0) + ' 秒</text>' +
+    '<text x="' + (P + 2) + '" y="' + (P + 10) + '" font-size="10" fill="var(--muted)">耐久 100%</text>' +
+    '</svg>'
+}
+
+function weaponList(side) {
+  const used = side.ws.filter(function (w) { return w.count > 0 }).sort(function (x, y) { return y.dmg - x.dmg }).slice(0, 6)
+  const idle = side.ws.filter(function (w) { return w.count === 0 })
+  return used.map(function (w) {
+    return '<div class="row"><span class="k">' + esc(w.name) + (w.n > 1 ? ' ×' + w.n : '') + '</span><span class="v">' + num(Math.round(w.dmg)) + '</span></div>'
+  }).join('') + idle.map(function (w) {
+    return '<div class="row" style="opacity:.5"><span class="k">' + esc(w.name) + '</span><span class="v" style="color:var(--dim)">' + esc(w.why || '没开火') + '</span></div>'
+  }).join('')
+}
+
+function battleResultHtml(b) {
+  const R = b.R, B = b.B
+  const won = b.winner
+  const title = won ? esc(label(won.it)) + ' 获胜' : b.decided ? '同归于尽' : '300 秒没分出胜负'
+  const sub = (b.decided
+    ? b.time.toFixed(1) + ' 秒结束 · 红方剩 ' + Math.round(Math.max(0, R.hp) / R.max * 100) + '% · 蓝方剩 ' + Math.round(Math.max(0, B.hp) / B.max * 100) + '%'
+    : '两边都还有 ' + Math.round(R.hp / R.max * 100) + '% / ' + Math.round(B.hp / B.max * 100) + '% 耐久') + ' · 距离 ' + b.dist + ' km'
+  return '<div class="win"><b>' + title + '</b><span>' + esc(sub) + '</span>' +
+    '<div class="hp">红 ' + esc(label(R.it)) + ' vs 蓝 ' + esc(label(B.it)) + '</div></div>' +
+    '<div class="radar" style="padding:10px">' + hpChart(b.series) + '</div>' +
+    '<h3>出力明细（红方）</h3><div class="table">' + weaponList(R) + '</div>' +
+    '<h3>出力明细（蓝方）</h3><div class="table">' + weaponList(B) + '</div>'
+}
+
+function renderBattle() {
+  const red = S.battle.red ? BY.get(S.battle.red) : null
+  const blue = S.battle.blue ? BY.get(S.battle.blue) : null
+  function side(it, key, hint) {
+    const hp = it ? statNum(statMap(it.stats).health) : null
+    return '<div class="side">' + (it ? ph(it.icon, label(it), true) : '<div class="ph sq" data-ch="?"></div>') +
+      '<div class="sname">' + (it ? esc(label(it)) : hint) + '</div>' +
+      '<div class="smeta">' + (it ? esc([it.flagCn, tierTxt(it.tier) + ' 阶'].filter(Boolean).join(' · ')) : '还没选') + '</div>' +
+      (it ? '<div class="smeta">耐久 ' + num(hp || 0) + '</div>' : '') +
+      '<button class="btn" data-side="' + key + '">' + (it ? '换一艘' : '选舰船') + '</button></div>'
+  }
+  view.innerHTML = '<h3>斗蛐蛐 · 两艘船对轰</h3>' +
+    '<div class="vs">' + side(red, 'red', '红方') + '<div class="mid">VS</div>' + side(blue, 'blue', '蓝方') + '</div>' +
+    '<div class="distrow"><span>交战距离</span><input type="range" id="dist" min="2" max="25" step="0.5" value="' + (S.battle.dist || 8) + '"><b id="distv">' + (S.battle.dist || 8) + ' km</b></div>' +
+    '<div class="actions"><button class="btn primary" id="simstart"' + (red && blue ? '' : ' style="opacity:.45"') + '>开始对战</button></div>' +
+    '<div class="foot">双方固定在这个距离对轰：武器要够得着才开火，首发 = 锁定时间 + 半装填，<br>命中按「距离 ÷ 弹速」延迟结算；只算对舰 / 对潜火力，防空不参与。</div>' +
+    '<div id="result">' + (BATTLE ? battleResultHtml(BATTLE) : '') + '</div>'
+}
+
+function openShipPick(key) {
+  const ships = ITEMS.filter(function (x) { return x.kind === 'ship' })
+  const sorted = ships.slice().sort(function (a, b) { return (Number(b.tier || 0) - Number(a.tier || 0)) || label(a).localeCompare(label(b), 'zh') })
+  function row(it) {
+    return '<button class="pick" data-pickship="' + keyOf(it) + '">' + ph(it.icon, label(it), true) +
+      '<div class="pi"><div class="pn">' + esc(label(it)) + ' · ' + tierTxt(it.tier) + '</div><div class="ps">' + esc([it.flagCn, it.typeCn].filter(Boolean).join(' · ')) + '</div></div>' +
+      '<span class="pv">' + num(statNum(statMap(it.stats).health) || 0) + '</span></button>'
+  }
+  $modal.innerHTML = '<div class="scrim" data-close="1"></div><div class="sheet">' +
+    '<div class="h"><b>选' + (key === 'red' ? '红方' : '蓝方') + '舰船</b><button data-close="1">关闭</button></div>' +
+    '<div class="sb"><input id="ships" placeholder="搜舰船（' + ships.length + ' 艘）" autocomplete="off"></div>' +
+    '<div class="list" id="shiplist">' + sorted.slice(0, 40).map(row).join('') + '</div></div>'
+  const input = document.getElementById('ships')
+  const listEl = document.getElementById('shiplist')
+  input.oninput = function () {
+    const q = input.value.trim()
+    const list = q ? search(q).filter(function (x) { return x.kind === 'ship' }) : sorted
+    listEl.innerHTML = list.slice(0, 40).map(row).join('')
+  }
+  $modal.onclick = function (e) {
+    if (e.target.closest('[data-close]')) { $modal.innerHTML = ''; return }
+    const p = e.target.closest('[data-pickship]')
+    if (!p) return
+    S.battle[key] = p.getAttribute('data-pickship')
+    save()
+    BATTLE = null
+    $modal.innerHTML = ''
+    renderBattle()
+  }
+}
+
 /* ── 外观设置 ─────────────────────────────────────────────────────────── */
 function openSettings() {
   const btns = Object.keys(THEMES).map(function (k) {
@@ -1704,6 +1921,10 @@ window.addEventListener('hashchange', route)
 
 let deferredInstall = null
 window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); deferredInstall = e })
+
+document.addEventListener('visibilitychange', function () {
+  document.body.classList.toggle('pause-fx', document.hidden)
+})
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   window.addEventListener('load', function () {
