@@ -389,6 +389,7 @@ nav.tabs .dot{position:absolute;top:6px;right:calc(50% - 20px);background:var(--
 <script>
 'use strict'
 const D = JSON.parse(document.getElementById('mw-data').textContent)
+const BUILD = '2026-11-03 19:12'
 const ICONBASE = 'https://sirin.asia/en/out/icons/'
 const VER = D.iconVer || '1'
 const ITEMS = []
@@ -1695,7 +1696,7 @@ function openSettings() {
       '<button class="pick" id="feedbackbtn"><div class="pi"><div class="pn">反馈 / 报错</div><div class="ps">数值不对、功能异常、想加的功能</div></div><span class="pv">去反馈</span></button>' +
       '<button class="pick" id="apkbtn"><div class="pi"><div class="pn">下载安卓 App</div><div class="ps">现代战舰查询器 · 约 0.6 MB · 断网也能查</div></div><span class="pv">下载</span></button>' +
       '<button class="pick" id="changelogbtn"><div class="pi"><div class="pn">更新日志</div><div class="ps">最近一次数据变化：新增 / 削弱 / 加强</div></div><span class="pv">查看</span></button>' +
-      '<button class="pick" id="aboutbtn"><div class="pi"><div class="pn">关于本站</div><div class="ps">数据来源、制作者与说明</div></div><span class="pv">查看</span></button>' +
+      '<button class="pick" id="aboutbtn"><div class="pi"><div class="pn">关于本站</div><div class="ps">页面构建 ' + BUILD + ' · 数据 v' + (D.version || '') + '</div></div><span class="pv">查看</span></button>' +
       '<div class="setlabel">背景主题</div><div class="swatches">' + btns + '</div>' +
       '<div class="setlabel">数值口径</div>' +
       '<button class="pick" id="maxtoggle"><div class="pi">' +
