@@ -405,7 +405,7 @@ html.lowfx .card{clip-path:none}
 <script>
 'use strict'
 const D = JSON.parse(document.getElementById('mw-data').textContent)
-const BUILD = '2026-11-04 00:17'
+const BUILD = '2026-11-04 00:30'
 const LOWFX = (function () {
   try { const v = localStorage.getItem('mw.lowfx'); if (v !== null) return v === '1' } catch (e) {}
   const mem = Number(navigator.deviceMemory || 4)
@@ -1719,7 +1719,7 @@ function openSettings() {
       '</div><span class="pv" id="updstate">检查</span></button>' +
       '<button class="pick" id="lowfxbtn"><div class="pi"><div class="pn">流畅模式</div><div class="ps">关掉背景波浪和部分特效，更省电、更跟手</div></div><span class="pv">' + (LOWFX ? '已开' : '已关') + '</span></button>' +
       '<button class="pick" id="feedbackbtn"><div class="pi"><div class="pn">反馈 / 报错</div><div class="ps">数值不对、功能异常、想加的功能</div></div><span class="pv">去反馈</span></button>' +
-      '<button class="pick" id="apkbtn"><div class="pi"><div class="pn">下载安卓 App</div><div class="ps">现代战舰查询器 · 约 0.6 MB · 断网也能查</div></div><span class="pv">下载</span></button>' +
+      '<button class="pick" id="apkbtn"><div class="pi"><div class="pn">下载安卓 App</div><div class="ps" id="apksize">现代战舰查询器 · 断网也能查</div></div><span class="pv">下载</span></button>' +
       '<button class="pick" id="changelogbtn"><div class="pi"><div class="pn">更新日志</div><div class="ps">最近一次数据变化：新增 / 削弱 / 加强</div></div><span class="pv">查看</span></button>' +
       '<button class="pick" id="aboutbtn"><div class="pi"><div class="pn">关于本站</div><div class="ps">页面构建 ' + BUILD + ' · 数据 v' + (D.version || '') + '</div></div><span class="pv">查看</span></button>' +
       '<div class="setlabel">背景主题</div><div class="swatches">' + btns + '</div>' +
@@ -1778,6 +1778,22 @@ function openSettings() {
     setTimeout(openSettings, 120)
   }
   document.getElementById('feedbackbtn').onclick = function () { openFeedback() }
+  ;(function () {
+    const el = document.getElementById('apksize')
+    if (!el) return
+    const APK = 'https://yuyuyuyu-fifi.github.io/mw-guide/mw-guide.apk'
+    let cached = ''
+    try { cached = localStorage.getItem('mw.apksize') || '' } catch (e) {}
+    if (cached) el.textContent = '现代战舰查询器 · ' + cached + ' · 断网也能查'
+    fetch(APK, { method: 'HEAD', cache: 'no-store' }).then(function (r) {
+      const n = Number(r.headers.get('content-length'))
+      if (!n) return
+      const mb = (n / 1048576).toFixed(1) + ' MB'
+      el.textContent = '现代战舰查询器 · ' + mb + ' · 断网也能查'
+      try { localStorage.setItem('mw.apksize', mb) } catch (e) {}
+    }).catch(function () {})
+  })()
+
   document.getElementById('apkbtn').onclick = function () {
     if (location.host === 'mw-guide.local') { toast('你已经在 App 里了'); return }
     location.href = 'https://yuyuyuyu-fifi.github.io/mw-guide/mw-guide.apk'
