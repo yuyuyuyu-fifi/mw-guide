@@ -1416,7 +1416,7 @@ function simWeapons(it, distance) {
         const per = statNum(m.burstShip) || 0
         if (per) {
           const cd = statNum(m.cooldown) || 30
-          ws.push({ name: e.label, n: p.n, shot: per * p.n, reload: cd, lock: 0, travel: 0, inRange: true, why: '', next: cd * 0.5, count: 0, dmg: 0, isAir: true })
+          ws.push({ name: e.label, n: p.n, shot: per * p.n, reload: cd, lock: 0, travel: 0, inRange: true, why: '', next: cd * 0.5, count: 0, dmg: 0, isAir: true, isMissile: /导弹/.test((f.cn || f.name) || '') })
         }
         continue
       }
@@ -1426,7 +1426,7 @@ function simWeapons(it, distance) {
         const per = statNum(fm.burstTotal) || (statNum(fm.damage) || 0) * (statNum(fm.launchCount) || 1)
         if (!per) continue
         const rl = statNum(fm.reloadTime) || 10
-        ws.push({ name: e.label + ' · ' + ((f.cn || f.name) || '武器'), n: p.n, shot: per * amt * p.n, reload: rl, lock: 0, travel: 0, inRange: true, why: '', next: rl * 0.5, count: 0, dmg: 0, isAir: true })
+        ws.push({ name: e.label + ' · ' + ((f.cn || f.name) || '武器'), n: p.n, shot: per * amt * p.n, reload: rl, lock: 0, travel: 0, inRange: true, why: '', next: rl * 0.5, count: 0, dmg: 0, isAir: true, isMissile: /导弹/.test((f.cn || f.name) || '') })
       }
       continue
     }
@@ -1441,11 +1441,13 @@ function simWeapons(it, distance) {
     const lock = statNum(m.lockTime) || 0
     const speed = statNum(m.maxSpeed) || statNum(m.startSpeed) || 0
     const travel = speed > 0 ? distance / (speed * KM_PER_KN_S) : 0
+    const typeCn = (e.item && e.item.typeCn) || ''
+    const isMissile = /导弹/.test(typeCn) && !/鱼雷|潜射/.test(typeCn)
     let why = ''
     if (!vsSurface) why = tt ? '只打' + tt : '非对舰武器'
     else if (range != null && range < distance) why = '射程 ' + num(range) + ' km'
     else if (distance < minRange) why = '最小射程 ' + num(minRange) + ' km'
-    ws.push({ name: e.label, n: p.n, shot: per * p.n, reload: reload, lock: lock, travel: travel, inRange: why === '', why: why, next: lock + reload * 0.5, count: 0, dmg: 0 })
+    ws.push({ name: e.label, n: p.n, shot: per * p.n, reload: reload, lock: lock, travel: travel, inRange: why === '', why: why, next: lock + reload * 0.5, count: 0, dmg: 0, isMissile: isMissile })
   }
   return ws
 }
@@ -1463,6 +1465,20 @@ function simulate(a, b, distance) {
     return v
   }
   const aaR = aaDpmOf(a), aaB = aaDpmOf(b)
+  const missileRate = function (side) {
+    let v = 0
+    for (const w of side.ws) if (w.isMissile) v += w.shot / w.reload
+    return v
+  }
+  // 防空拦截导弹：防空越强、对方导弹越少，拦截比例越高（上限 70%）
+  const intR = (function () {
+    const aa = aaB / 60, inc = missileRate(R)
+    return inc > 0 ? Math.min(0.7, aa / (aa + inc)) : 0
+  })()
+  const intB = (function () {
+    const aa = aaR / 60, inc = missileRate(B)
+    return inc > 0 ? Math.min(0.7, aa / (aa + inc)) : 0
+  })()
   const multR = airSuppression(aaB, Math.round(airRate(R))) // 红方飞机被蓝方防空压制
   const multB = airSuppression(aaR, Math.round(airRate(B)))
   const pending = []
@@ -1480,14 +1496,14 @@ function simulate(a, b, distance) {
     for (const w of R.ws) {
       if (!w.inRange) continue
       while (t >= w.next) {
-        const dmg = w.isAir ? w.shot * multR : w.shot
+        const dmg = w.shot * (w.isAir ? multR : 1) * (w.isMissile ? 1 - intR : 1)
         pending.push({ at: t + w.travel, to: 'B', dmg: dmg }); w.dmg += dmg; w.count++; w.next += w.reload
       }
     }
     for (const w of B.ws) {
       if (!w.inRange) continue
       while (t >= w.next) {
-        const dmg = w.isAir ? w.shot * multB : w.shot
+        const dmg = w.shot * (w.isAir ? multB : 1) * (w.isMissile ? 1 - intB : 1)
         pending.push({ at: t + w.travel, to: 'R', dmg: dmg }); w.dmg += dmg; w.count++; w.next += w.reload
       }
     }
@@ -1497,7 +1513,7 @@ function simulate(a, b, distance) {
   const decided = R.hp <= 0 || B.hp <= 0
   const winner = R.hp <= 0 && B.hp <= 0 ? null : B.hp <= 0 ? R : R.hp <= 0 ? B : null
   return { R: R, B: B, winner: winner, time: Math.min(t, 300), series: series, decided: decided, dist: D0,
-           aa: { r: aaR, b: aaB }, mult: { r: multR, b: multB } }
+           aa: { r: aaR, b: aaB }, mult: { r: multR, b: multB }, intc: { r: intR, b: intB } }
 }
 
 function hpChart(series) {
@@ -1539,6 +1555,8 @@ function battleResultHtml(b) {
     '<div class="radar" style="padding:10px">' + hpChart(b.series) + '</div>' +
     '<div class="table">' +
       '<div class="row"><span class="k">防空（红 / 蓝）</span><span class="v">' + num(b.aa.r) + ' / ' + num(b.aa.b) + ' 分均</span></div>' +
+      '<div class="row"><span class="k">红方导弹被拦截</span><span class="v">' + Math.round(b.intc.r * 100) + '%</span></div>' +
+      '<div class="row"><span class="k">蓝方导弹被拦截</span><span class="v">' + Math.round(b.intc.b * 100) + '%</span></div>' +
       '<div class="row"><span class="k">红方舰载机被压制</span><span class="v">' + Math.round((1 - b.mult.r) * 100) + '%</span></div>' +
       '<div class="row"><span class="k">蓝方舰载机被压制</span><span class="v">' + Math.round((1 - b.mult.b) * 100) + '%</span></div>' +
     '</div>' +
@@ -1562,8 +1580,8 @@ function renderBattle() {
     '<div class="vs">' + side(red, 'red', '红方') + '<div class="mid">VS</div>' + side(blue, 'blue', '蓝方') + '</div>' +
     '<div class="distrow"><span>交战距离</span><input type="range" id="dist" min="2" max="25" step="0.5" value="' + (S.battle.dist || 8) + '"><b id="distv">' + (S.battle.dist || 8) + ' km</b></div>' +
     '<div class="actions"><button class="btn primary" id="simstart"' + (red && blue ? '' : ' style="opacity:.45"') + '>开始对战</button></div>' +
-    (red && blue ? '<div class="foot">用的是各自「配装」页里保存的换装' + (Object.keys(buildOf(red)).length || Object.keys(buildOf(blue)).length ? '（' + (Object.keys(buildOf(red)).length + Object.keys(buildOf(blue)).length) + ' 处自定义）' : '（原装）') + '；防空会把对方舰载机打下来一部分。</div>' : '') +
-    '<div class="foot">双方固定在这个距离对轰：武器要够得着才开火，首发 = 锁定时间 + 半装填，<br>命中按「距离 ÷ 弹速」延迟结算；防空不打船，但会按对方的防空强度削减舰载机输出。</div>' +
+    (red && blue ? '<div class="foot">用的是各自「配装」页里保存的换装' + (Object.keys(buildOf(red)).length || Object.keys(buildOf(blue)).length ? '（' + (Object.keys(buildOf(red)).length + Object.keys(buildOf(blue)).length) + ' 处自定义）' : '（原装）') + '；防空会拦截对方导弹、压制对方舰载机。</div>' : '') +
+    '<div class="foot">双方固定在这个距离对轰：武器要够得着才开火，首发 = 锁定时间 + 半装填，<br>命中按「距离 ÷ 弹速」延迟结算；防空不打船，但会拦截对方导弹、压制对方舰载机（鱼雷和炮弹拦不了）。</div>' +
     '<div id="result">' + (BATTLE ? battleResultHtml(BATTLE) : '') + '</div>'
 }
 
