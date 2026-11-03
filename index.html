@@ -920,7 +920,9 @@ function imgPump() {
     const img = IMG_Q.shift()
     if (!img.isConnected || img.getAttribute('src')) continue
     IMG_ON++
-    img.src = img.getAttribute('data-src')
+    const local = img.getAttribute('data-local')
+    img.dataset.stage = local ? 'local' : 'remote'
+    img.src = local || img.getAttribute('data-src')
   }
 }
 function imgSettled(img) {
@@ -933,6 +935,14 @@ window.__mwImgOk = function (img) {
   imgSettled(img)
 }
 window.__mwImgErr = function (img) {
+  if (img.dataset.stage === 'local') {
+    img.dataset.stage = 'remote'
+    img.removeAttribute('src')
+    IMG_ON = Math.max(0, IMG_ON - 1)
+    IMG_Q.unshift(img)
+    imgPump()
+    return
+  }
   const n = Number(img.getAttribute('data-try') || 0)
   if (n >= 3) { imgSettled(img); img.style.display = 'none'; return }
   img.setAttribute('data-try', String(n + 1))
@@ -968,7 +978,7 @@ function ph(icon, alt, sq) {
   const known = SEEN_IMG.has(icon) ? ' class="ok"' : ''
   return '<div class="ph' + (sq ? ' sq' : '') + '" data-ch="' + ch + '"><img' + known +
     ' loading="lazy" decoding="async" alt="" referrerpolicy="no-referrer" data-icon="' + esc(icon) +
-    '" data-src="' + src + '" onload="__mwImgOk(this)" onerror="__mwImgErr(this)"></div>'
+    '" data-src="' + src + '" data-local="img/' + encodeURIComponent(icon) + '.webp" onload="__mwImgOk(this)" onerror="__mwImgErr(this)"></div>'
 }
 
 /* ── 组件 ─────────────────────────────────────────────────────────────── */
