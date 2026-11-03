@@ -282,6 +282,12 @@ nav.tabs .dot{position:absolute;top:6px;right:calc(50% - 20px);background:var(--
   color:color-mix(in srgb,var(--warn) 85%,var(--text));background:color-mix(in srgb,var(--warn) 12%,transparent);
   border:1px solid color-mix(in srgb,var(--warn) 32%,var(--line))}
 
+@keyframes viewin{from{opacity:0;transform:translate3d(0,10px,0)}to{opacity:1;transform:translate3d(0,0,0)}}
+.viewin{animation:viewin .24s cubic-bezier(.22,.75,.3,1) both}
+@keyframes tabin{from{opacity:0;transform:translate3d(14px,0,0)}to{opacity:1;transform:translate3d(0,0,0)}}
+.viewin-x{animation:tabin .22s cubic-bezier(.22,.75,.3,1) both}
+@media (prefers-reduced-motion: reduce){.viewin,.viewin-x{animation:none}}
+
 /* settings */
 .setlabel{font-size:12px;color:var(--muted);margin:14px 0 8px;letter-spacing:.4px}
 .swatches{display:flex;gap:8px;flex-wrap:wrap}
@@ -1759,7 +1765,7 @@ function showWelcome(reopen) {
   $modal.innerHTML = '<div class="scrim" data-close="1"></div><div class="sheet notice">' +
     '<h2>欢迎使用 现代战舰图鉴</h2>' +
     '<p>数据来源于《现代战舰》资料站 <b>sirin.asia</b>（MW玩家攻略站），本站只做整理与查询，<b>如有错误欢迎指正</b>。</p>' +
-    '<p>制作者：<b>Ground Zero Clan 归零丨启航 联队 · 鱼雨鱼雨</b></p>' +
+    '<p>制作者：<b>Ground Zero CLAN 归零地 ［归零丨启航］联队 鱼雨鱼雨</b></p>' +
     '<p>功能尚不齐全，数据与模拟仍可能有差错，请以游戏内为准。</p>' +
     '<button class="ok" data-close="1">知道了，开始用</button></div>'
   $modal.onclick = function (e) {
@@ -1902,6 +1908,14 @@ function setTab(tab) {
   dot.hidden = S.cmp.length === 0
   dot.textContent = S.cmp.length
 }
+function animateView(kind) {
+  const v = document.getElementById('view')
+  if (!v) return
+  v.classList.remove('viewin', 'viewin-x')
+  void v.offsetWidth
+  v.classList.add(kind === 'x' ? 'viewin-x' : 'viewin')
+}
+
 function route() {
   if ($modal) $modal.innerHTML = ''
   const h = location.hash.replace(/^#\/?/, '')
@@ -1915,6 +1929,7 @@ function route() {
     $ttl.textContent = label(it)
     renderItem(it)
     window.scrollTo(0, 0)
+    animateView()
     return
   }
   const tab = parts[0] === 'cmp' ? 'cmp' : parts[0] === 'fav' ? 'fav' : parts[0] === 'sim' ? 'sim' : 'list'
@@ -1924,6 +1939,7 @@ function route() {
   $searchbar.hidden = tab !== 'list'
   $chips.hidden = tab !== 'list'
   syncMaxBtn()
+  animateView()
   if (tab === 'cmp') renderCompare()
   else if (tab === 'sim') renderBattle()
   else if (tab === 'fav') renderFav()
@@ -2010,7 +2026,7 @@ document.addEventListener('click', function (e) {
     return
   }
   const seg = t.closest('[data-seg]')
-  if (seg) { S.itemTab = seg.dataset.seg; save(); renderItem(CUR); return }
+  if (seg) { S.itemTab = seg.dataset.seg; save(); renderItem(CUR); animateView('x'); return }
   const sw = t.closest('[data-swap]')
   if (sw && CUR) {
     const part = loadout(CUR)[Number(sw.dataset.swap)]
