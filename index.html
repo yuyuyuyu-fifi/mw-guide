@@ -323,6 +323,12 @@ html.lowfx .card{clip-path:none}
 .mrowwrap{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
 .mrowwrap .mrow{background:transparent;border:0;border-radius:0}
 .mskins{display:flex;flex-wrap:wrap;gap:5px;padding:0 12px 10px}
+.morder{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border:1px solid var(--line);border-radius:10px;margin-bottom:6px;background:var(--panel)}
+.mop{font-size:14px;font-weight:750;color:var(--accent);font-variant-numeric:tabular-nums}
+.mod{font-size:11.5px;color:var(--muted)}
+.dbgbox{margin:0 0 10px;padding:10px 12px;border-radius:10px;background:color-mix(in srgb,var(--warn) 10%,transparent);border:1px solid color-mix(in srgb,var(--warn) 30%,var(--line))}
+.dbgbox b{font-size:12px;color:var(--warn)}
+.dbgbox pre{margin:6px 0 0;font-size:11px;line-height:1.45;white-space:pre-wrap;word-break:break-all;color:var(--muted);max-height:220px;overflow:auto}
 
 /* settings */
 .setlabel{font-size:12px;color:var(--muted);margin:14px 0 8px;letter-spacing:.4px}
@@ -432,7 +438,7 @@ html.lowfx .card{clip-path:none}
 <script>
 'use strict'
 const D = JSON.parse(document.getElementById('mw-data').textContent)
-const BUILD = '2026-11-04 00:48'
+const BUILD = '2026-11-04 00:58'
 const MARKET = {"at": "2026-11-04T00:40+08:00", "source": "sirin.asia/en/market_pass.html", "items": [{"name": "CN Type 058", "listings": 25, "price": 1987}, {"name": "F126", "listings": 42, "price": 1900}, {"name": "FS Jeanne d'Arc", "listings": 28, "price": 1180}, {"name": "JS Akizuki (DD-115)", "listings": 23, "price": 815}, {"name": "IT DDX", "listings": 18, "price": 1630}, {"name": "ROKS Jeongjo the Great", "listings": 38, "price": 1747}, {"name": "最上", "listings": 21, "price": 3000}, {"name": "蒙苏尔", "listings": 16, "price": 600}, {"name": "海燕", "listings": 36, "price": 470}, {"name": "布拉风", "listings": 21, "price": 420}, {"name": "CN Project CG90", "listings": 65, "price": 500}, {"name": "中船探索07X", "listings": 29, "price": 820}, {"name": "055A“东莞”", "listings": 32, "price": 820}, {"name": "巴斯蒂辛海军上将", "listings": 32, "price": 568}, {"name": "RF Admiral Gorshkov", "listings": 27, "price": 677}, {"name": "RF Anchar (Project 1199)", "listings": 22, "price": 640}]}
 const LOWFX = (function () {
   try { const v = localStorage.getItem('mw.lowfx'); if (v !== null) return v === '1' } catch (e) {}
@@ -1739,9 +1745,55 @@ function renderMarket() {
       '<button class="btn" id="mkopen">打开官网</button>' +
     '</div>' +
     '<div class="count"><span>共 ' + items.length + ' 艘 · 按最低价排序 · 点一行看皮肤</span></div>' +
+    (MARKET_DEBUG ? '<div class="dbgbox"><b>抓取调试</b><pre>' + esc(JSON.stringify(MARKET_DEBUG).slice(0, 900)) + '</pre></div>' : '') +
     '<div class="mtable">' + rows + '</div>' +
     '<div class="foot">价格单位 AC（游戏内黄金券）· 数据来自 sirin.asia 市场监控</div>'
 }
+let MARKET_DEBUG = null
+function b64decode(b64) {
+  const bin = atob(b64)
+  const bytes = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+  return new TextDecoder().decode(bytes)
+}
+window.__mwDetailB64 = function (b64) {
+  try {
+    if (!b64) { toast('详情抓取为空'); return }
+    const d = JSON.parse(b64decode(b64))
+    const orders = d.orders || []
+    const body = orders.length
+      ? orders.map(function (o, i) {
+          return '<div class="morder"><div class="mop">' + num(o.price) + ' AC</div><div class="mod">' + esc(o.date || '') + '</div></div>'
+        }).join('')
+      : '<div class="empty">没抓到卖单（可能页面结构变了）</div>'
+    $modal.innerHTML = '<div class="scrim" data-close="1"></div><div class="sheet">' +
+      '<div class="h"><b>' + esc(d.name || '卖单详情') + '</b><button data-close="1">关闭</button></div>' +
+      '<div class="list" style="padding:0 14px 14px">' + body +
+      (d.items && d.items.length ? '<h3>包含物品</h3><div class="mskins">' + d.items.slice(0, 40).map(function (k) { return '<span class="cchip">' + esc(k) + '</span>' }).join('') + '</div>' : '') +
+      '</div></div>'
+    Array.prototype.forEach.call($modal.querySelectorAll('[data-close]'), function (el) { el.onclick = function () { $modal.innerHTML = '' } })
+  } catch (e) { toast('详情解析失败：' + e.message) }
+}
+window.__mwMarketB64 = function (b64) {
+  try {
+    if (!b64) { toast('抓取为空：可能被官网拦了'); return }
+    const bin = atob(b64)
+    const bytes = new Uint8Array(bin.length)
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+    const d = JSON.parse(new TextDecoder().decode(bytes))
+    if (!d || !Array.isArray(d.items) || !d.items.length) {
+      MARKET_DEBUG = d && d.debug ? d.debug : { error: '没有解析到条目' }
+      toast('没抓到行情，已显示调试信息')
+      if (location.hash.indexOf('market') >= 0) renderMarket()
+      return
+    }
+    MARKET_DEBUG = null
+    MARKET = { at: d.at, source: '官网实时', items: d.items }
+    toast('已更新 ' + d.items.length + ' 条行情')
+    if (location.hash.indexOf('market') >= 0) renderMarket()
+  } catch (e) { toast('解析失败：' + e.message) }
+}
+
 window.__mwMarket = function (jsonStr) {
   try {
     const d = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr
@@ -2233,7 +2285,16 @@ document.addEventListener('click', function (e) {
   const mkrow = t.closest('[data-mk]')
   if (mkrow) {
     const it = (MARKET.items || []).slice().sort(function (a, b) { return a.price - b.price })[Number(mkrow.getAttribute('data-mk'))]
-    if (it) { if (MARKET_OPEN.has(it.name)) MARKET_OPEN.delete(it.name); else MARKET_OPEN.add(it.name); renderMarket() }
+    if (!it) return
+    if (window.MWBridge && window.MWBridge.requestDetail && it.id) {
+      const idx = Number(mkrow.getAttribute('data-mk'))
+      $modal.innerHTML = '<div class="scrim" data-close="1"></div><div class="sheet"><div class="h"><b>' + esc(it.name) + '</b><button data-close="1">关闭</button></div><div class="list" style="padding:16px"><div class="empty">正在抓取卖单…</div></div></div>'
+      Array.prototype.forEach.call($modal.querySelectorAll('[data-close]'), function (el) { el.onclick = function () { $modal.innerHTML = '' } })
+      try { window.MWBridge.requestDetail(it.id) } catch (e) {}
+      return
+    }
+    if (MARKET_OPEN.has(it.name)) MARKET_OPEN.delete(it.name); else MARKET_OPEN.add(it.name)
+    renderMarket()
     return
   }
   const mk = t.closest('#mkopen')
