@@ -320,6 +320,9 @@ html.lowfx .card{clip-path:none}
 .mmeta{font-size:11px;color:var(--muted);margin-top:2px}
 .mprice{font-size:15px;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums;white-space:nowrap}
 .mprice span{font-size:10px;color:var(--muted);margin-left:3px;font-weight:600}
+.mrowwrap{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.mrowwrap .mrow{background:transparent;border:0;border-radius:0}
+.mskins{display:flex;flex-wrap:wrap;gap:5px;padding:0 12px 10px}
 
 /* settings */
 .setlabel{font-size:12px;color:var(--muted);margin:14px 0 8px;letter-spacing:.4px}
@@ -429,7 +432,7 @@ html.lowfx .card{clip-path:none}
 <script>
 'use strict'
 const D = JSON.parse(document.getElementById('mw-data').textContent)
-const BUILD = '2026-11-04 00:44'
+const BUILD = '2026-11-04 00:48'
 const MARKET = {"at": "2026-11-04T00:40+08:00", "source": "sirin.asia/en/market_pass.html", "items": [{"name": "CN Type 058", "listings": 25, "price": 1987}, {"name": "F126", "listings": 42, "price": 1900}, {"name": "FS Jeanne d'Arc", "listings": 28, "price": 1180}, {"name": "JS Akizuki (DD-115)", "listings": 23, "price": 815}, {"name": "IT DDX", "listings": 18, "price": 1630}, {"name": "ROKS Jeongjo the Great", "listings": 38, "price": 1747}, {"name": "最上", "listings": 21, "price": 3000}, {"name": "蒙苏尔", "listings": 16, "price": 600}, {"name": "海燕", "listings": 36, "price": 470}, {"name": "布拉风", "listings": 21, "price": 420}, {"name": "CN Project CG90", "listings": 65, "price": 500}, {"name": "中船探索07X", "listings": 29, "price": 820}, {"name": "055A“东莞”", "listings": 32, "price": 820}, {"name": "巴斯蒂辛海军上将", "listings": 32, "price": 568}, {"name": "RF Admiral Gorshkov", "listings": 27, "price": 677}, {"name": "RF Anchar (Project 1199)", "listings": 22, "price": 640}]}
 const LOWFX = (function () {
   try { const v = localStorage.getItem('mw.lowfx'); if (v !== null) return v === '1' } catch (e) {}
@@ -1707,22 +1710,47 @@ function battleResultHtml(b) {
     '<h3>出力明细（蓝方）</h3><div class="table">' + weaponList(B) + '</div>'
 }
 
+const MARKET_OPEN = new Set()
 function renderMarket() {
   const items = (MARKET.items || []).slice().sort(function (a, b) { return a.price - b.price })
+  const live = !!(window.MWBridge && window.MWBridge.requestMarket)
   const rows = items.map(function (m, i) {
-    return '<div class="mrow">' +
-      '<div class="mrank">' + (i + 1) + '</div>' +
-      '<div class="minfo"><div class="mname">' + esc(m.name) + '</div>' +
-      '<div class="mmeta">' + m.listings + ' 个卖单</div></div>' +
-      '<div class="mprice">' + num(m.price) + '<span>AC</span></div>' +
+    const open = MARKET_OPEN.has(m.name)
+    const skins = m.skins || []
+    return '<div class="mrowwrap">' +
+      '<div class="mrow" data-mk="' + i + '">' +
+        '<div class="mrank">' + (i + 1) + '</div>' +
+        '<div class="minfo"><div class="mname">' + esc(m.name) + '</div>' +
+        '<div class="mmeta">' + m.listings + ' 个卖单' + (skins.length ? ' · 皮肤 ' + skins.length : '') + '</div></div>' +
+        '<div class="mprice">' + num(m.price) + '<span>AC</span></div>' +
+      '</div>' +
+      (open && skins.length ? '<div class="mskins">' + skins.map(function (k) {
+        return '<span class="cchip">' + esc(k.replace(/^(Skin|Camo)_?/, '')) + '</span>'
+      }).join('') + '</div>' : '') +
     '</div>'
   }).join('')
+  const stamp = (MARKET.at || '').replace('T', ' ').slice(0, 16)
   view.innerHTML = '<h3>市场 · 通行证船只行情</h3>' +
-    '<div class="tip"><span class="ti">ℹ️</span><span>官网行情接口需要登录且被 Cloudflare 拦截，这里显示的是最近一次快照（' + esc((MARKET.at || '').slice(0, 16).replace('T', ' ')) + '）。想看实时价请点下面按钮。</span></div>' +
-    '<div class="actions"><button class="btn primary" id="mkopen">打开官网实时行情</button></div>' +
-    '<div class="count"><span>共 ' + items.length + ' 艘 · 按最低价排序</span></div>' +
+    '<div class="tip"><span class="ti">ℹ️</span><span>' +
+      (live ? '点「刷新实时行情」会从官网抓当前价格（约 5 秒）。' : '官网行情需要浏览器环境，网页版只能看快照；App 内可实时抓取。') +
+      ' 当前数据：' + esc(MARKET.source || '快照') + ' · ' + esc(stamp) + '</span></div>' +
+    '<div class="actions">' +
+      (live ? '<button class="btn primary" id="mklive">刷新实时行情</button>' : '') +
+      '<button class="btn" id="mkopen">打开官网</button>' +
+    '</div>' +
+    '<div class="count"><span>共 ' + items.length + ' 艘 · 按最低价排序 · 点一行看皮肤</span></div>' +
     '<div class="mtable">' + rows + '</div>' +
-    '<div class="foot">价格单位 AC（游戏内黄金券），来自 sirin.asia 市场监控</div>'
+    '<div class="foot">价格单位 AC（游戏内黄金券）· 数据来自 sirin.asia 市场监控</div>'
+}
+window.__mwMarket = function (jsonStr) {
+  try {
+    const d = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr
+    if (!d || !Array.isArray(d.items)) { toast('没抓到行情，稍后重试'); return }
+    if (!d.items.length) { toast('页面结构可能变了，抓到 0 条'); return }
+    MARKET = { at: d.at, source: '官网实时', items: d.items }
+    toast('已更新 ' + d.items.length + ' 条行情')
+    if (location.hash.indexOf('market') >= 0) renderMarket()
+  } catch (e) { toast('行情解析失败') }
 }
 
 function renderBattle() {
@@ -2200,6 +2228,14 @@ document.addEventListener('click', function (e) {
   if (rar) { FILTER.rarity = rar.dataset.rarity; SHOWN = PAGE; renderList(); return }
   const nat = t.closest('[data-nation]')
   if (nat) { FILTER.nation = nat.dataset.nation; SHOWN = PAGE; renderList(); return }
+  const mklive = t.closest('#mklive')
+  if (mklive) { try { window.MWBridge.requestMarket(); toast('正在抓取官网行情，约 5 秒…') } catch (e) { toast('当前环境不支持') } return }
+  const mkrow = t.closest('[data-mk]')
+  if (mkrow) {
+    const it = (MARKET.items || []).slice().sort(function (a, b) { return a.price - b.price })[Number(mkrow.getAttribute('data-mk'))]
+    if (it) { if (MARKET_OPEN.has(it.name)) MARKET_OPEN.delete(it.name); else MARKET_OPEN.add(it.name); renderMarket() }
+    return
+  }
   const mk = t.closest('#mkopen')
   if (mk) { window.open('https://sirin.asia/en/market_pass.html', '_blank'); return }
   const moreBtn = t.closest('#morebtn')
