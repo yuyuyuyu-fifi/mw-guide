@@ -1561,6 +1561,7 @@ function openSettings() {
       '<button class="pick" id="updbtn"><div class="pi">' +
         '<div class="pn" id="updlabel"></div><div class="ps" id="updsub"></div>' +
       '</div><span class="pv" id="updstate">检查</span></button>' +
+      '<button class="pick" id="apkbtn"><div class="pi"><div class="pn">下载安卓 App</div><div class="ps">现代战舰查询器 · 约 0.6 MB · 断网也能查</div></div><span class="pv">下载</span></button>' +
       '<button class="pick" id="changelogbtn"><div class="pi"><div class="pn">更新日志</div><div class="ps">最近一次数据变化：新增 / 削弱 / 加强</div></div><span class="pv">查看</span></button>' +
       '<button class="pick" id="aboutbtn"><div class="pi"><div class="pn">关于本站</div><div class="ps">数据来源、制作者与说明</div></div><span class="pv">查看</span></button>' +
       '<div class="setlabel">背景主题</div><div class="swatches">' + btns + '</div>' +
@@ -1610,6 +1611,10 @@ function openSettings() {
   })
   document.getElementById('aboutbtn').onclick = function () { showWelcome(true) }
   document.getElementById('changelogbtn').onclick = function () { openChangelog() }
+  document.getElementById('apkbtn').onclick = function () {
+    if (location.host === 'mw-guide.local') { toast('你已经在 App 里了'); return }
+    location.href = 'https://yuyuyuyu-fifi.github.io/mw-guide/mw-guide.apk'
+  }
   const ib = document.getElementById('installbtn')
   if (ib) ib.onclick = function () { deferredInstall.prompt(); deferredInstall = null; $modal.innerHTML = '' }
   document.getElementById('updbtn').onclick = checkUpdate
