@@ -300,6 +300,18 @@ body.scrolling .wave,body.scrolling .sparkle,body.scrolling .harbor-skyline,body
 html.lowfx .stage .big::before{display:none}
 html.lowfx .card{clip-path:none}
 
+.cmeta{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.cchip{font-size:10px;line-height:1.5;padding:1px 6px;border-radius:6px;color:var(--muted);border:1px solid var(--line);background:color-mix(in srgb,var(--panel2) 70%,transparent)}
+.cchip.r0{color:var(--r0);border-color:color-mix(in srgb,var(--r0) 40%,var(--line))}
+.cchip.r1{color:var(--r1);border-color:color-mix(in srgb,var(--r1) 40%,var(--line))}
+.cchip.r2{color:var(--r2);border-color:color-mix(in srgb,var(--r2) 45%,var(--line))}
+.cchip.r3{color:var(--r3);border-color:color-mix(in srgb,var(--r3) 45%,var(--line))}
+.cchip.r4{color:var(--r4);border-color:color-mix(in srgb,var(--r4) 55%,var(--line))}
+.newbadge{position:absolute;left:8px;bottom:52px;z-index:2;font-size:9.5px;font-weight:800;letter-spacing:.5px;color:#1a1200;
+  background:linear-gradient(180deg,#ffd166,#ffb020);border-radius:5px;padding:1px 5px;box-shadow:0 2px 8px rgba(255,176,32,.35)}
+.filterrow{margin:2px 0 8px}
+.chip.small2{font-size:11.5px;padding:5px 10px}
+
 /* settings */
 .setlabel{font-size:12px;color:var(--muted);margin:14px 0 8px;letter-spacing:.4px}
 .swatches{display:flex;gap:8px;flex-wrap:wrap}
@@ -405,7 +417,7 @@ html.lowfx .card{clip-path:none}
 <script>
 'use strict'
 const D = JSON.parse(document.getElementById('mw-data').textContent)
-const BUILD = '2026-11-04 00:30'
+const BUILD = '2026-11-04 00:41'
 const LOWFX = (function () {
   try { const v = localStorage.getItem('mw.lowfx'); if (v !== null) return v === '1' } catch (e) {}
   const mem = Number(navigator.deviceMemory || 4)
@@ -543,7 +555,7 @@ const $tabs = document.getElementById('tabs')
 const $modal = document.getElementById('modal')
 $ver.textContent = 'v' + (D.version || '')
 
-const FILTER = { type: '', tier: '', sort: '' }
+const FILTER = { type: '', tier: '', sort: '', rarity: '', nation: '' }
 const PAGE = (typeof LOWFX !== 'undefined' && LOWFX) ? 30 : 60
 let SHOWN = PAGE
 
@@ -1007,15 +1019,27 @@ function ph(icon, alt, sq) {
 
 /* ── 组件 ─────────────────────────────────────────────────────────────── */
 function badgeOf(it) { return '<span class="r' + Number(it.rarity || 0) + '">' + esc(rarityTxt(it)) + '</span>' }
+const NEW_SET = new Set()
+fetch('updates.json', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null }).then(function (d) {
+  if (d && Array.isArray(d.added)) for (const n of d.added) NEW_SET.add(n)
+}).catch(function () {})
+
 function card(it) {
   const r = Number(it.rarity || 0)
   const on = S.cmp.indexOf(keyOf(it)) >= 0
+  const isNew = NEW_SET.has(label(it))
   return '<a class="card r-' + r + '" href="#/item/' + it.sec + '/' + encodeURIComponent(it.id) + '">' +
     ph(it.icon, label(it)) +
     '<span class="tierbadge">' + tierTxt(it.tier) + '</span>' +
+    (isNew ? '<span class="newbadge">NEW</span>' : '') +
     '<button class="cmpbtn' + (on ? ' on' : '') + '" data-cmp="' + keyOf(it) + '">' + (on ? '✓' : '+') + '</button>' +
     '<div class="cname">' + esc(label(it)) + '</div>' +
-    '<div class="cmeta">' + esc(it.typeCn || '') + ' · ' + tierTxt(it.tier) + ' · ' + badgeOf(it) + '</div></a>'
+    '<div class="cmeta">' +
+      (it.typeCn ? '<span class="cchip">' + esc(it.typeCn) + '</span>' : '') +
+      '<span class="cchip">' + tierTxt(it.tier) + ' 阶</span>' +
+      '<span class="cchip r' + r + '">' + esc(rarityTxt(it)) + '</span>' +
+      (it.flagCn ? '<span class="cchip">' + esc(it.flagCn) + '</span>' : '') +
+    '</div></a>'
 }
 function toast(msg) {
   let el = document.getElementById('toast')
@@ -1059,8 +1083,27 @@ function renderList() {
     rows = rows.filter(function (x) { return x.sec === sp[1] && x.typeKey === sp[0] })
   }
   if (FILTER.tier !== '') rows = rows.filter(function (x) { return String(x.tier) === FILTER.tier })
+  if (FILTER.rarity !== '') rows = rows.filter(function (x) { return String(x.rarity) === FILTER.rarity })
+  if (FILTER.nation !== '') rows = rows.filter(function (x) { return String(x.flagCn || '') === FILTER.nation })
   rows = sortRows(rows)
   const shown = rows.slice(0, SHOWN)
+  const rarityCount = {}
+  const nationCount = {}
+  for (const x of (q ? search(q) : ITEMS.slice())) {
+    rarityCount[String(x.rarity)] = (rarityCount[String(x.rarity)] || 0) + 1
+    if (x.flagCn) nationCount[x.flagCn] = (nationCount[x.flagCn] || 0) + 1
+  }
+  const RARE_NAMES = ['普通', '改良', '稀有', '史诗', '传说']
+  const rarityRow = '<div class="chips filterrow">' + ['', '0', '1', '2', '3', '4'].map(function (r) {
+    const label = r === '' ? '全部品质' : RARE_NAMES[Number(r)]
+    const n = r === '' ? '' : ' ' + (rarityCount[r] || 0)
+    return '<button class="chip small2' + (FILTER.rarity === r ? ' on' : '') + (r === '' ? '' : ' r' + r) + '" data-rarity="' + r + '">' + label + n + '</button>'
+  }).join('') + '</div>'
+  const nationRow = '<div class="chips filterrow">' + ['', ...Object.keys(nationCount).sort(function (a, b) { return nationCount[b] - nationCount[a] })].map(function (n) {
+    const label = n === '' ? '全部国家' : n
+    const c = n === '' ? '' : ' ' + nationCount[n]
+    return '<button class="chip small2' + (FILTER.nation === n ? ' on' : '') + '" data-nation="' + esc(n) + '">' + esc(label) + c + '</button>'
+  }).join('') + '</div>'
   const sorts = [['', '默认'], ['dpm', '分均伤害'], ['health', '耐久'], ['range', '射程'], ['reloadTime', '装填'], ['weight', '权重'], ['burstShip', '对舰爆发']]
   const hero = (q || FILTER.type || FILTER.sort || FILTER.tier) ? '' :
     '<div class="herocard"><div class="h1">现代战舰图鉴</div>' +
@@ -1073,6 +1116,7 @@ function renderList() {
     '<button class="chip small' + (FILTER.tier === '' ? ' on' : '') + '" data-tier="">全阶</button>' +
     ['0', '1', '2'].map(function (t) { return '<button class="chip small' + (FILTER.tier === t ? ' on' : '') + '" data-tier="' + t + '">' + TIER[t] + '</button>' }).join('') +
     '</span></div>' +
+    rarityRow + nationRow +
     '<div class="count"><span></span><select id="sortsel" style="background:var(--panel);color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:4px 8px;font-size:12px">' +
     sorts.map(function (p) { return '<option value="' + p[0] + '"' + (FILTER.sort === p[0] ? ' selected' : '') + '>排序：' + p[1] + '</option>' }).join('') +
     '</select></div>' +
@@ -2119,7 +2163,11 @@ document.addEventListener('click', function (e) {
     return
   }
   const tier = t.closest('[data-tier]')
-  if (tier) { FILTER.tier = tier.dataset.tier; renderList(); return }
+  if (tier) { FILTER.tier = tier.dataset.tier; SHOWN = PAGE; renderList(); return }
+  const rar = t.closest('[data-rarity]')
+  if (rar) { FILTER.rarity = rar.dataset.rarity; SHOWN = PAGE; renderList(); return }
+  const nat = t.closest('[data-nation]')
+  if (nat) { FILTER.nation = nat.dataset.nation; SHOWN = PAGE; renderList(); return }
   const moreBtn = t.closest('#morebtn')
   if (moreBtn) { SHOWN += PAGE; renderList(); return }
   const pre = t.closest('[data-preset]')
