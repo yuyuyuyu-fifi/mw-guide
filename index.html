@@ -1383,6 +1383,20 @@ function openSwap(it, part) {
 let BATTLE = null
 const KM_PER_KN_S = 0.001852
 
+function airLabelOf(it) {
+  const kinds = {}
+  for (const p of loadout(it)) {
+    const e = slotEquip(it, p)
+    const k = e.item && e.item.kind
+    if (k === 'aircraft' || k === 'helicopter' || k === 'unmanned') kinds[k] = 1
+  }
+  if (kinds.aircraft && kinds.helicopter) return '舰载机/直升机'
+  if (kinds.aircraft) return '舰载机'
+  if (kinds.helicopter) return '直升机'
+  if (kinds.unmanned) return '无人机'
+  return ''
+}
+
 function aaDpmOf(it) {
   let total = 0
   for (const p of loadout(it)) {
@@ -1588,8 +1602,8 @@ function battleResultHtml(b) {
       '<div class="row"><span class="k">蓝方鱼雷被拦截</span><span class="v">' + Math.round(b.torp.b * 100) + '%</span></div>' +
       '<div class="row"><span class="k">红方导弹被拦截</span><span class="v">' + Math.round(b.intc.r * 100) + '%</span></div>' +
       '<div class="row"><span class="k">蓝方导弹被拦截</span><span class="v">' + Math.round(b.intc.b * 100) + '%</span></div>' +
-      '<div class="row"><span class="k">红方舰载机被压制</span><span class="v">' + Math.round((1 - b.mult.r) * 100) + '%</span></div>' +
-      '<div class="row"><span class="k">蓝方舰载机被压制</span><span class="v">' + Math.round((1 - b.mult.b) * 100) + '%</span></div>' +
+      (airLabelOf(R.it) ? '<div class="row"><span class="k">红方' + esc(airLabelOf(R.it)) + '被压制</span><span class="v">' + Math.round((1 - b.mult.r) * 100) + '%</span></div>' : '') +
+      (airLabelOf(B.it) ? '<div class="row"><span class="k">蓝方' + esc(airLabelOf(B.it)) + '被压制</span><span class="v">' + Math.round((1 - b.mult.b) * 100) + '%</span></div>' : '') +
     '</div>' +
     '<h3>出力明细（红方）</h3><div class="table">' + weaponList(R) + '</div>' +
     '<h3>出力明细（蓝方）</h3><div class="table">' + weaponList(B) + '</div>'
@@ -1611,9 +1625,9 @@ function renderBattle() {
     '<div class="vs">' + side(red, 'red', '红方') + '<div class="mid">VS</div>' + side(blue, 'blue', '蓝方') + '</div>' +
     '<div class="distrow"><span>交战距离</span><input type="range" id="dist" min="2" max="25" step="0.5" value="' + (S.battle.dist || 8) + '"><b id="distv">' + (S.battle.dist || 8) + ' km</b></div>' +
     '<div class="actions"><button class="btn primary" id="simstart"' + (red && blue ? '' : ' style="opacity:.45"') + '>开始对战</button></div>' +
-    (red && blue ? '<div class="foot">用的是各自「配装」页里保存的换装' + (Object.keys(buildOf(red)).length || Object.keys(buildOf(blue)).length ? '（' + (Object.keys(buildOf(red)).length + Object.keys(buildOf(blue)).length) + ' 处自定义）' : '（原装）') + '；防空会拦截对方导弹、压制对方舰载机。</div>' : '') +
+    (red && blue ? '<div class="foot">用的是各自「配装」页里保存的换装' + (Object.keys(buildOf(red)).length || Object.keys(buildOf(blue)).length ? '（' + (Object.keys(buildOf(red)).length + Object.keys(buildOf(blue)).length) + ' 处自定义）' : '（原装）') + '；防空会拦截对方导弹、压制对方舰载机/直升机。</div>' : '') +
     '<div class="callout">该模式运算规则简单，不代表实战中实际效果。</div>' +
-    '<div class="foot">双方固定在这个距离对轰：武器要够得着才开火，首发 = 锁定时间 + 半装填，<br>命中按「距离 ÷ 弹速」延迟结算；防空不打船，但会拦截对方导弹、压制对方舰载机（鱼雷和炮弹拦不了）。</div>' +
+    '<div class="foot">双方固定在这个距离对轰：武器要够得着才开火，首发 = 锁定时间 + 半装填，<br>命中按「距离 ÷ 弹速」延迟结算；防空不打船，但会拦截对方导弹、压制对方舰载机/直升机（鱼雷和炮弹拦不了）。</div>' +
     '<div id="result">' + (BATTLE ? battleResultHtml(BATTLE) : '') + '</div>'
 }
 
