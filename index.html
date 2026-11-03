@@ -312,6 +312,15 @@ html.lowfx .card{clip-path:none}
 .filterrow{margin:2px 0 8px}
 .chip.small2{font-size:11.5px;padding:5px 10px}
 
+.mtable{display:flex;flex-direction:column;gap:6px}
+.mrow{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.mrank{width:20px;text-align:center;font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums}
+.minfo{flex:1;min-width:0}
+.mname{font-size:13.5px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mmeta{font-size:11px;color:var(--muted);margin-top:2px}
+.mprice{font-size:15px;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums;white-space:nowrap}
+.mprice span{font-size:10px;color:var(--muted);margin-left:3px;font-weight:600}
+
 /* settings */
 .setlabel{font-size:12px;color:var(--muted);margin:14px 0 8px;letter-spacing:.4px}
 .swatches{display:flex;gap:8px;flex-wrap:wrap}
@@ -405,6 +414,9 @@ html.lowfx .card{clip-path:none}
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l7 7M20 4l-7 7"/><path d="M4 20l5-5"/><path d="M20 20l-5-5"/><circle cx="12" cy="15" r="2.4"/></svg>
     对战
   </button>
+  <button data-tab="market">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 20V9l4-5 4 5v11M11 20V4l4 6v10M19 20V11l2-2 2 2v9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    市场</button>
   <button data-tab="fav">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M12 3.6l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.8l5.9-.9z"/></svg>
     收藏
@@ -417,7 +429,8 @@ html.lowfx .card{clip-path:none}
 <script>
 'use strict'
 const D = JSON.parse(document.getElementById('mw-data').textContent)
-const BUILD = '2026-11-04 00:41'
+const BUILD = '2026-11-04 00:44'
+const MARKET = {"at": "2026-11-04T00:40+08:00", "source": "sirin.asia/en/market_pass.html", "items": [{"name": "CN Type 058", "listings": 25, "price": 1987}, {"name": "F126", "listings": 42, "price": 1900}, {"name": "FS Jeanne d'Arc", "listings": 28, "price": 1180}, {"name": "JS Akizuki (DD-115)", "listings": 23, "price": 815}, {"name": "IT DDX", "listings": 18, "price": 1630}, {"name": "ROKS Jeongjo the Great", "listings": 38, "price": 1747}, {"name": "最上", "listings": 21, "price": 3000}, {"name": "蒙苏尔", "listings": 16, "price": 600}, {"name": "海燕", "listings": 36, "price": 470}, {"name": "布拉风", "listings": 21, "price": 420}, {"name": "CN Project CG90", "listings": 65, "price": 500}, {"name": "中船探索07X", "listings": 29, "price": 820}, {"name": "055A“东莞”", "listings": 32, "price": 820}, {"name": "巴斯蒂辛海军上将", "listings": 32, "price": 568}, {"name": "RF Admiral Gorshkov", "listings": 27, "price": 677}, {"name": "RF Anchar (Project 1199)", "listings": 22, "price": 640}]}
 const LOWFX = (function () {
   try { const v = localStorage.getItem('mw.lowfx'); if (v !== null) return v === '1' } catch (e) {}
   const mem = Number(navigator.deviceMemory || 4)
@@ -1694,6 +1707,24 @@ function battleResultHtml(b) {
     '<h3>出力明细（蓝方）</h3><div class="table">' + weaponList(B) + '</div>'
 }
 
+function renderMarket() {
+  const items = (MARKET.items || []).slice().sort(function (a, b) { return a.price - b.price })
+  const rows = items.map(function (m, i) {
+    return '<div class="mrow">' +
+      '<div class="mrank">' + (i + 1) + '</div>' +
+      '<div class="minfo"><div class="mname">' + esc(m.name) + '</div>' +
+      '<div class="mmeta">' + m.listings + ' 个卖单</div></div>' +
+      '<div class="mprice">' + num(m.price) + '<span>AC</span></div>' +
+    '</div>'
+  }).join('')
+  view.innerHTML = '<h3>市场 · 通行证船只行情</h3>' +
+    '<div class="tip"><span class="ti">ℹ️</span><span>官网行情接口需要登录且被 Cloudflare 拦截，这里显示的是最近一次快照（' + esc((MARKET.at || '').slice(0, 16).replace('T', ' ')) + '）。想看实时价请点下面按钮。</span></div>' +
+    '<div class="actions"><button class="btn primary" id="mkopen">打开官网实时行情</button></div>' +
+    '<div class="count"><span>共 ' + items.length + ' 艘 · 按最低价排序</span></div>' +
+    '<div class="mtable">' + rows + '</div>' +
+    '<div class="foot">价格单位 AC（游戏内黄金券），来自 sirin.asia 市场监控</div>'
+}
+
 function renderBattle() {
   const red = S.battle.red ? BY.get(S.battle.red) : null
   const blue = S.battle.blue ? BY.get(S.battle.blue) : null
@@ -2043,7 +2074,7 @@ function route() {
     animateView(dir)
     return
   }
-  const tab = parts[0] === 'cmp' ? 'cmp' : parts[0] === 'fav' ? 'fav' : parts[0] === 'sim' ? 'sim' : 'list'
+  const tab = parts[0] === 'cmp' ? 'cmp' : parts[0] === 'fav' ? 'fav' : parts[0] === 'sim' ? 'sim' : parts[0] === 'market' ? 'market' : 'list'
   setTab(tab)
   $back.hidden = true
   $ttl.textContent = '现代战舰图鉴'
@@ -2051,6 +2082,7 @@ function route() {
   $chips.hidden = tab !== 'list'
   syncMaxBtn()
   animateView(dir)
+  if (tab === 'market') { renderMarket(); return }
   if (tab === 'cmp') renderCompare()
   else if (tab === 'sim') renderBattle()
   else if (tab === 'fav') renderFav()
@@ -2168,6 +2200,8 @@ document.addEventListener('click', function (e) {
   if (rar) { FILTER.rarity = rar.dataset.rarity; SHOWN = PAGE; renderList(); return }
   const nat = t.closest('[data-nation]')
   if (nat) { FILTER.nation = nat.dataset.nation; SHOWN = PAGE; renderList(); return }
+  const mk = t.closest('#mkopen')
+  if (mk) { window.open('https://sirin.asia/en/market_pass.html', '_blank'); return }
   const moreBtn = t.closest('#morebtn')
   if (moreBtn) { SHOWN += PAGE; renderList(); return }
   const pre = t.closest('[data-preset]')
