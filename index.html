@@ -275,6 +275,9 @@ nav.tabs .dot{position:absolute;top:6px;right:calc(50% - 20px);background:var(--
 .legend .lg i{font-style:normal;color:var(--dim);margin-right:4px}
 .legend .lg{white-space:nowrap}
 
+.fbin{width:100%;margin-top:10px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;color:var(--text);font-size:14px;line-height:1.5;resize:vertical;font-family:inherit}
+.fbin:focus{outline:none;border-color:color-mix(in srgb,var(--accent) 55%,var(--line))}
+
 /* settings */
 .setlabel{font-size:12px;color:var(--muted);margin:14px 0 8px;letter-spacing:.4px}
 .swatches{display:flex;gap:8px;flex-wrap:wrap}
@@ -559,7 +562,8 @@ const sUnit = (k) => (meta(k) && meta(k)[1]) || ''
 function num(v) {
   if (typeof v !== 'number' || !isFinite(v)) return String(v == null ? '—' : v)
   if (Number.isInteger(v)) return v.toLocaleString('en-US')
-  const r = Math.abs(v) < 1 ? Math.round(v * 1000) / 1000 : Math.round(v * 100) / 100
+  const eps = v < 0 ? -1e-7 : 1e-7
+  const r = Math.abs(v) < 1 ? Math.round(v * 1000 + eps) / 1000 : Math.round(v * 100 + eps) / 100
   return Math.abs(r) >= 1000 ? r.toLocaleString('en-US') : String(r)
 }
 function statMap(stats) {
@@ -1561,6 +1565,7 @@ function openSettings() {
       '<button class="pick" id="updbtn"><div class="pi">' +
         '<div class="pn" id="updlabel"></div><div class="ps" id="updsub"></div>' +
       '</div><span class="pv" id="updstate">检查</span></button>' +
+      '<button class="pick" id="feedbackbtn"><div class="pi"><div class="pn">反馈 / 报错</div><div class="ps">数值不对、功能异常、想加的功能</div></div><span class="pv">去反馈</span></button>' +
       '<button class="pick" id="apkbtn"><div class="pi"><div class="pn">下载安卓 App</div><div class="ps">现代战舰查询器 · 约 0.6 MB · 断网也能查</div></div><span class="pv">下载</span></button>' +
       '<button class="pick" id="changelogbtn"><div class="pi"><div class="pn">更新日志</div><div class="ps">最近一次数据变化：新增 / 削弱 / 加强</div></div><span class="pv">查看</span></button>' +
       '<button class="pick" id="aboutbtn"><div class="pi"><div class="pn">关于本站</div><div class="ps">数据来源、制作者与说明</div></div><span class="pv">查看</span></button>' +
@@ -1611,6 +1616,7 @@ function openSettings() {
   })
   document.getElementById('aboutbtn').onclick = function () { showWelcome(true) }
   document.getElementById('changelogbtn').onclick = function () { openChangelog() }
+  document.getElementById('feedbackbtn').onclick = function () { openFeedback() }
   document.getElementById('apkbtn').onclick = function () {
     if (location.host === 'mw-guide.local') { toast('你已经在 App 里了'); return }
     location.href = 'https://yuyuyuyu-fifi.github.io/mw-guide/mw-guide.apk'
@@ -1651,6 +1657,59 @@ function showWelcome(reopen) {
       $modal.innerHTML = ''
     }
   }
+}
+
+function openFeedback() {
+  const cats = ['数值错误', '功能异常', '功能建议', '其他']
+  let cat = '数值错误'
+  const intro = '会带上当前数据版本 v' + (D.version || '?') + '，方便定位问题。'
+  function body(text, contact) {
+    return '【类别】' + cat + '\n【描述】' + (text || '（没有填写）') + '\n【联系方式】' + (contact || '（未填）') +
+      '\n【数据版本】v' + (D.version || '?') + ' · ' + (D.generated || '') + '\n【页面】' + location.href
+  }
+  $modal.innerHTML = '<div class="scrim" data-close="1"></div><div class="sheet">' +
+    '<div class="h"><b>反馈 / 报错</b><button data-close="1">关闭</button></div>' +
+    '<div class="sb"><div class="chips" id="fbcats">' + cats.map(function (c) {
+      return '<button class="chip small' + (c === cat ? ' on' : '') + '" data-fbcat="' + c + '">' + c + '</button>'
+    }).join('') + '</div></div>' +
+    '<div class="list" style="padding:0 14px 14px">' +
+      '<textarea id="fbtxt" class="fbin" rows="5" placeholder="说清楚一点：哪艘船 / 哪件装备、哪个数值、游戏里显示多少、你期望是什么"></textarea>' +
+      '<input id="fbcontact" class="fbin" placeholder="联系方式（可选，QQ / 微信 / GitHub 昵称）" autocomplete="off">' +
+      '<div class="foot" style="margin:8px 0 10px">' + intro + '</div>' +
+      '<div class="actions"><button class="btn" id="fbcopy">复制内容</button><button class="btn primary" id="fbsend">用 GitHub 提交</button></div>' +
+      '<div class="foot" style="margin-top:8px">没有 GitHub 账号也没关系：点「复制内容」，把内容发到群里或发给作者即可。</div>' +
+    '</div></div>'
+  Array.prototype.forEach.call($modal.querySelectorAll('[data-fbcat]'), function (el) {
+    el.onclick = function () {
+      cat = el.getAttribute('data-fbcat')
+      Array.prototype.forEach.call($modal.querySelectorAll('[data-fbcat]'), function (x) { x.classList.toggle('on', x === el) })
+    }
+  })
+  document.getElementById('fbcopy').onclick = function () {
+    const text = body(document.getElementById('fbtxt').value.trim(), document.getElementById('fbcontact').value.trim())
+    const done = function () { toast('已复制，发到群里就行') }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text, done) })
+    else fallbackCopy(text, done)
+  }
+  document.getElementById('fbsend').onclick = function () {
+    const desc = document.getElementById('fbtxt').value.trim()
+    if (!desc) { toast('先写两句描述吧'); return }
+    const text = body(desc, document.getElementById('fbcontact').value.trim())
+    const title = cat + '：' + desc.split('\n')[0].slice(0, 40)
+    const url = 'https://github.com/yuyuyuyu-fifi/mw-guide/issues/new?title=' + encodeURIComponent(title) + '&body=' + encodeURIComponent(text)
+    location.href = url
+  }
+  Array.prototype.forEach.call($modal.querySelectorAll('[data-close]'), function (el) { el.onclick = function () { $modal.innerHTML = '' } })
+}
+
+function fallbackCopy(text, done) {
+  const ta = document.createElement('textarea')
+  ta.value = text
+  ta.style.cssText = 'position:fixed;left:-9999px;top:0'
+  document.body.appendChild(ta)
+  ta.select()
+  try { document.execCommand('copy'); done() } catch (e) { toast('复制失败，请手动选择文本') }
+  document.body.removeChild(ta)
 }
 
 function openChangelog() {
@@ -1733,6 +1792,7 @@ function setTab(tab) {
   dot.textContent = S.cmp.length
 }
 function route() {
+  if ($modal) $modal.innerHTML = ''
   const h = location.hash.replace(/^#\/?/, '')
   const parts = h.split('/')
   if (parts[0] === 'item' && parts[1] && parts[2]) {
@@ -1761,7 +1821,12 @@ function route() {
 }
 
 /* ── 事件 ─────────────────────────────────────────────────────────────── */
-$back.onclick = function () { if (history.length > 1) history.back(); else location.hash = '#/list' }
+function goTab(tab) {
+  const h = '#/' + tab
+  if (location.hash === h) route()
+  else location.hash = h
+}
+$back.onclick = function () { goTab('list') }
 $tabs.addEventListener('click', function (e) {
   const b = e.target.closest('button[data-tab]')
   if (b) location.hash = '#/' + b.dataset.tab
