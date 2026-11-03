@@ -105,7 +105,7 @@ main{padding:12px 12px 20px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(152px,1fr));gap:10px}
 
 /* card */
-.card{position:relative;background:linear-gradient(180deg,var(--panel2),var(--panel) 55%);border:0;overflow:hidden;display:block;content-visibility:auto;contain-intrinsic-size:190px;
+.card{position:relative;background:linear-gradient(180deg,var(--panel2),var(--panel) 55%);border:0;overflow:hidden;display:block;content-visibility:auto;contain-intrinsic-size:190px;contain:layout paint;
   clip-path:polygon(0 0,calc(100% - 13px) 0,100% 13px,100% 100%,13px 100%,0 calc(100% - 13px));
   box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--rc,var(--line)) 45%,var(--line)),inset 0 1px 0 color-mix(in srgb,#fff 8%,transparent);
   transition:transform .12s ease}
@@ -283,10 +283,22 @@ nav.tabs .dot{position:absolute;top:6px;right:calc(50% - 20px);background:var(--
   border:1px solid color-mix(in srgb,var(--warn) 32%,var(--line))}
 
 @keyframes viewin{from{opacity:0;transform:translate3d(0,10px,0)}to{opacity:1;transform:translate3d(0,0,0)}}
-.viewin{animation:viewin .24s cubic-bezier(.22,.75,.3,1) both}
+.viewin{animation:viewin .26s cubic-bezier(.22,.75,.3,1) both}
+@keyframes pageinR{from{opacity:0;transform:translate3d(30px,0,0)}to{opacity:1;transform:translate3d(0,0,0)}}
+@keyframes pageinL{from{opacity:0;transform:translate3d(-30px,0,0)}to{opacity:1;transform:translate3d(0,0,0)}}
+.viewin-r{animation:pageinR .3s cubic-bezier(.22,.75,.3,1) both;will-change:transform,opacity}
+.viewin-l{animation:pageinL .3s cubic-bezier(.22,.75,.3,1) both;will-change:transform,opacity}
+@keyframes sheetup{from{transform:translate3d(0,24px,0);opacity:.6}to{transform:none;opacity:1}}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
 @keyframes tabin{from{opacity:0;transform:translate3d(14px,0,0)}to{opacity:1;transform:translate3d(0,0,0)}}
 .viewin-x{animation:tabin .22s cubic-bezier(.22,.75,.3,1) both}
 @media (prefers-reduced-motion: reduce){.viewin,.viewin-x{animation:none}}
+
+html.lowfx .wave,html.lowfx .sparkle,html.lowfx .harbor i,html.lowfx .harbor-skyline{animation:none!important}
+html.lowfx .reflect{display:none}
+body.scrolling .wave,body.scrolling .sparkle,body.scrolling .harbor-skyline,body.scrolling .harbor i{animation-play-state:paused}
+html.lowfx .stage .big::before{display:none}
+html.lowfx .card{clip-path:none}
 
 /* settings */
 .setlabel{font-size:12px;color:var(--muted);margin:14px 0 8px;letter-spacing:.4px}
@@ -312,8 +324,8 @@ nav.tabs .dot{position:absolute;top:6px;right:calc(50% - 20px);background:var(--
 .hbtn.primary{background:var(--accent);color:#04121f;border-color:var(--accent);font-weight:650}
 
 /* sheet */
-.scrim{position:fixed;inset:0;background:rgba(2,6,14,.6);z-index:40;backdrop-filter:blur(2px)}
-.sheet{position:fixed;left:0;right:0;bottom:0;z-index:41;max-height:78vh;background:var(--bg2);border-top-left-radius:18px;border-top-right-radius:18px;border:1px solid var(--line);display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom);animation:fade .18s ease}
+.scrim{position:fixed;inset:0;background:rgba(2,6,14,.6);z-index:40;animation:fadein .18s ease both}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:41;animation:sheetup .24s cubic-bezier(.22,.75,.3,1) both;will-change:transform;max-height:78vh;background:var(--bg2);border-top-left-radius:18px;border-top-right-radius:18px;border:1px solid var(--line);display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom);animation:fade .18s ease}
 .sheet .h{display:flex;align-items:center;gap:8px;padding:12px 14px 8px}
 .sheet .h b{flex:1;font-size:14px}
 .sheet .h button{color:var(--accent);font-size:13px}
@@ -389,7 +401,14 @@ nav.tabs .dot{position:absolute;top:6px;right:calc(50% - 20px);background:var(--
 <script>
 'use strict'
 const D = JSON.parse(document.getElementById('mw-data').textContent)
-const BUILD = '2026-11-03 19:12'
+const BUILD = '2026-11-03 19:23'
+const LOWFX = (function () {
+  try { const v = localStorage.getItem('mw.lowfx'); if (v !== null) return v === '1' } catch (e) {}
+  const mem = Number(navigator.deviceMemory || 4)
+  const cores = Number(navigator.hardwareConcurrency || 4)
+  return mem <= 4 || cores <= 4
+})()
+document.documentElement.classList.toggle('lowfx', LOWFX)
 const ICONBASE = 'https://sirin.asia/en/out/icons/'
 const VER = D.iconVer || '1'
 const ITEMS = []
@@ -521,7 +540,7 @@ const $modal = document.getElementById('modal')
 $ver.textContent = 'v' + (D.version || '')
 
 const FILTER = { type: '', tier: '', sort: '' }
-const PAGE = 60
+const PAGE = (typeof LOWFX !== 'undefined' && LOWFX) ? 30 : 60
 let SHOWN = PAGE
 
 /* ── 检索 ─────────────────────────────────────────────────────────────── */
@@ -1693,6 +1712,7 @@ function openSettings() {
       '<button class="pick" id="updbtn"><div class="pi">' +
         '<div class="pn" id="updlabel"></div><div class="ps" id="updsub"></div>' +
       '</div><span class="pv" id="updstate">检查</span></button>' +
+      '<button class="pick" id="lowfxbtn"><div class="pi"><div class="pn">流畅模式</div><div class="ps">关掉背景波浪和部分特效，更省电、更跟手</div></div><span class="pv">' + (LOWFX ? '已开' : '已关') + '</span></button>' +
       '<button class="pick" id="feedbackbtn"><div class="pi"><div class="pn">反馈 / 报错</div><div class="ps">数值不对、功能异常、想加的功能</div></div><span class="pv">去反馈</span></button>' +
       '<button class="pick" id="apkbtn"><div class="pi"><div class="pn">下载安卓 App</div><div class="ps">现代战舰查询器 · 约 0.6 MB · 断网也能查</div></div><span class="pv">下载</span></button>' +
       '<button class="pick" id="changelogbtn"><div class="pi"><div class="pn">更新日志</div><div class="ps">最近一次数据变化：新增 / 削弱 / 加强</div></div><span class="pv">查看</span></button>' +
@@ -1744,6 +1764,14 @@ function openSettings() {
   })
   document.getElementById('aboutbtn').onclick = function () { showWelcome(true) }
   document.getElementById('changelogbtn').onclick = function () { openChangelog() }
+  document.getElementById('lowfxbtn').onclick = function () {
+    const next = !document.documentElement.classList.contains('lowfx')
+    document.documentElement.classList.toggle('lowfx', next)
+    try { localStorage.setItem('mw.lowfx', next ? '1' : '0') } catch (e) {}
+    $modal.innerHTML = ''
+    toast(next ? '已开启流畅模式' : '已关闭流畅模式')
+    setTimeout(openSettings, 120)
+  }
   document.getElementById('feedbackbtn').onclick = function () { openFeedback() }
   document.getElementById('apkbtn').onclick = function () {
     if (location.host === 'mw-guide.local') { toast('你已经在 App 里了'); return }
@@ -1922,13 +1950,19 @@ function setTab(tab) {
 function animateView(kind) {
   const v = document.getElementById('view')
   if (!v) return
-  v.classList.remove('viewin', 'viewin-x')
+  v.classList.remove('viewin', 'viewin-x', 'viewin-r', 'viewin-l')
   void v.offsetWidth
-  v.classList.add(kind === 'x' ? 'viewin-x' : 'viewin')
+  v.classList.add(kind === 'x' ? 'viewin-x' : kind === 'r' ? 'viewin-r' : kind === 'l' ? 'viewin-l' : 'viewin')
 }
 
+let LAST_PATH = ''
 function route() {
   if ($modal) $modal.innerHTML = ''
+  const curHash = location.hash
+  const wasItem = LAST_PATH.indexOf('#/item/') === 0
+  const isItem = curHash.indexOf('#/item/') === 0
+  const dir = isItem && !wasItem ? 'r' : (!isItem && wasItem ? 'l' : '')
+  LAST_PATH = curHash
   const h = location.hash.replace(/^#\/?/, '')
   const parts = h.split('/')
   if (parts[0] === 'item' && parts[1] && parts[2]) {
@@ -1940,7 +1974,7 @@ function route() {
     $ttl.textContent = label(it)
     renderItem(it)
     window.scrollTo(0, 0)
-    animateView()
+    animateView(dir)
     return
   }
   const tab = parts[0] === 'cmp' ? 'cmp' : parts[0] === 'fav' ? 'fav' : parts[0] === 'sim' ? 'sim' : 'list'
@@ -1950,7 +1984,7 @@ function route() {
   $searchbar.hidden = tab !== 'list'
   $chips.hidden = tab !== 'list'
   syncMaxBtn()
-  animateView()
+  animateView(dir)
   if (tab === 'cmp') renderCompare()
   else if (tab === 'sim') renderBattle()
   else if (tab === 'fav') renderFav()
@@ -2151,6 +2185,13 @@ window.addEventListener('hashchange', route)
 
 let deferredInstall = null
 window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); deferredInstall = e })
+
+let scrollTimer = 0
+window.addEventListener('scroll', function () {
+  if (!document.body.classList.contains('scrolling')) document.body.classList.add('scrolling')
+  clearTimeout(scrollTimer)
+  scrollTimer = setTimeout(function () { document.body.classList.remove('scrolling') }, 180)
+}, { passive: true })
 
 document.addEventListener('visibilitychange', function () {
   document.body.classList.toggle('pause-fx', document.hidden)
