@@ -1379,6 +1379,31 @@ function openSwap(it, part) {
 let BATTLE = null
 const KM_PER_KN_S = 0.001852
 
+function aaDpmOf(it) {
+  let total = 0
+  for (const p of loadout(it)) {
+    const e = slotEquip(it, p)
+    const kind = e.item ? e.item.kind : 'weapon'
+    if (kind === 'aircraft' || kind === 'helicopter' || kind === 'unmanned') continue
+    const m = statMap(e.stats)
+    const tt = m.targetType == null ? '' : String(statNum(m.targetType))
+    if (tt.indexOf('空中') < 0) continue
+    const dpm = statNum(m.dpm)
+    const reload = statNum(m.reloadTime) || 10
+    const per = dpm != null ? dpm : ((statNum(m.burstTotal) || 0) * 60) / reload
+    if (per) total += per * p.n
+  }
+  return Math.round(total)
+}
+
+// 防空压制：对方防空越强，舰载机输出被打得越少（下限保留 35%）
+function airSuppression(aaDpm, airDpm) {
+  if (!airDpm) return 1
+  if (!aaDpm) return 1
+  const cut = 0.65 * (aaDpm / (aaDpm + airDpm))
+  return Math.max(0.35, 1 - cut)
+}
+
 function simWeapons(it, distance) {
   const ws = []
   for (const p of loadout(it)) {
@@ -1391,7 +1416,7 @@ function simWeapons(it, distance) {
         const per = statNum(m.burstShip) || 0
         if (per) {
           const cd = statNum(m.cooldown) || 30
-          ws.push({ name: e.label, n: p.n, shot: per * p.n, reload: cd, lock: 0, travel: 0, inRange: true, why: '', next: cd * 0.5, count: 0, dmg: 0 })
+          ws.push({ name: e.label, n: p.n, shot: per * p.n, reload: cd, lock: 0, travel: 0, inRange: true, why: '', next: cd * 0.5, count: 0, dmg: 0, isAir: true })
         }
         continue
       }
@@ -1401,7 +1426,7 @@ function simWeapons(it, distance) {
         const per = statNum(fm.burstTotal) || (statNum(fm.damage) || 0) * (statNum(fm.launchCount) || 1)
         if (!per) continue
         const rl = statNum(fm.reloadTime) || 10
-        ws.push({ name: e.label + ' · ' + ((f.cn || f.name) || '武器'), n: p.n, shot: per * amt * p.n, reload: rl, lock: 0, travel: 0, inRange: true, why: '', next: rl * 0.5, count: 0, dmg: 0 })
+        ws.push({ name: e.label + ' · ' + ((f.cn || f.name) || '武器'), n: p.n, shot: per * amt * p.n, reload: rl, lock: 0, travel: 0, inRange: true, why: '', next: rl * 0.5, count: 0, dmg: 0, isAir: true })
       }
       continue
     }
@@ -1432,6 +1457,14 @@ function simulate(a, b, distance) {
     return { it: it, hp: hp, max: hp, ws: simWeapons(it, D0) }
   }
   const R = mk(a), B = mk(b)
+  const airRate = function (side) {
+    let v = 0
+    for (const w of side.ws) if (w.isAir) v += (w.shot / w.reload) * 60
+    return v
+  }
+  const aaR = aaDpmOf(a), aaB = aaDpmOf(b)
+  const multR = airSuppression(aaB, Math.round(airRate(R))) // 红方飞机被蓝方防空压制
+  const multB = airSuppression(aaR, Math.round(airRate(B)))
   const pending = []
   const series = []
   let t = 0, nextSample = 0
@@ -1446,18 +1479,25 @@ function simulate(a, b, distance) {
     }
     for (const w of R.ws) {
       if (!w.inRange) continue
-      while (t >= w.next) { pending.push({ at: t + w.travel, to: 'B', dmg: w.shot }); w.dmg += w.shot; w.count++; w.next += w.reload }
+      while (t >= w.next) {
+        const dmg = w.isAir ? w.shot * multR : w.shot
+        pending.push({ at: t + w.travel, to: 'B', dmg: dmg }); w.dmg += dmg; w.count++; w.next += w.reload
+      }
     }
     for (const w of B.ws) {
       if (!w.inRange) continue
-      while (t >= w.next) { pending.push({ at: t + w.travel, to: 'R', dmg: w.shot }); w.dmg += w.shot; w.count++; w.next += w.reload }
+      while (t >= w.next) {
+        const dmg = w.isAir ? w.shot * multB : w.shot
+        pending.push({ at: t + w.travel, to: 'R', dmg: dmg }); w.dmg += dmg; w.count++; w.next += w.reload
+      }
     }
     if (t >= nextSample) { series.push([t, Math.max(0, R.hp) / R.max, Math.max(0, B.hp) / B.max]); nextSample += 0.5 }
     if (R.hp <= 0 || B.hp <= 0) break
   }
   const decided = R.hp <= 0 || B.hp <= 0
   const winner = R.hp <= 0 && B.hp <= 0 ? null : B.hp <= 0 ? R : R.hp <= 0 ? B : null
-  return { R: R, B: B, winner: winner, time: Math.min(t, 300), series: series, decided: decided, dist: D0 }
+  return { R: R, B: B, winner: winner, time: Math.min(t, 300), series: series, decided: decided, dist: D0,
+           aa: { r: aaR, b: aaB }, mult: { r: multR, b: multB } }
 }
 
 function hpChart(series) {
@@ -1497,6 +1537,11 @@ function battleResultHtml(b) {
   return '<div class="win"><b>' + title + '</b><span>' + esc(sub) + '</span>' +
     '<div class="hp">红 ' + esc(label(R.it)) + ' vs 蓝 ' + esc(label(B.it)) + '</div></div>' +
     '<div class="radar" style="padding:10px">' + hpChart(b.series) + '</div>' +
+    '<div class="table">' +
+      '<div class="row"><span class="k">防空（红 / 蓝）</span><span class="v">' + num(b.aa.r) + ' / ' + num(b.aa.b) + ' 分均</span></div>' +
+      '<div class="row"><span class="k">红方舰载机被压制</span><span class="v">' + Math.round((1 - b.mult.r) * 100) + '%</span></div>' +
+      '<div class="row"><span class="k">蓝方舰载机被压制</span><span class="v">' + Math.round((1 - b.mult.b) * 100) + '%</span></div>' +
+    '</div>' +
     '<h3>出力明细（红方）</h3><div class="table">' + weaponList(R) + '</div>' +
     '<h3>出力明细（蓝方）</h3><div class="table">' + weaponList(B) + '</div>'
 }
@@ -1510,13 +1555,15 @@ function renderBattle() {
       '<div class="sname">' + (it ? esc(label(it)) : hint) + '</div>' +
       '<div class="smeta">' + (it ? esc([it.flagCn, tierTxt(it.tier) + ' 阶'].filter(Boolean).join(' · ')) : '还没选') + '</div>' +
       (it ? '<div class="smeta">耐久 ' + num(hp || 0) + '</div>' : '') +
+      (it ? '<div class="smeta">防空 ' + num(aaDpmOf(it)) + ' / 分</div>' : '') +
       '<button class="btn" data-side="' + key + '">' + (it ? '换一艘' : '选舰船') + '</button></div>'
   }
   view.innerHTML = '<h3>斗蛐蛐 · 两艘船对轰</h3>' +
     '<div class="vs">' + side(red, 'red', '红方') + '<div class="mid">VS</div>' + side(blue, 'blue', '蓝方') + '</div>' +
     '<div class="distrow"><span>交战距离</span><input type="range" id="dist" min="2" max="25" step="0.5" value="' + (S.battle.dist || 8) + '"><b id="distv">' + (S.battle.dist || 8) + ' km</b></div>' +
     '<div class="actions"><button class="btn primary" id="simstart"' + (red && blue ? '' : ' style="opacity:.45"') + '>开始对战</button></div>' +
-    '<div class="foot">双方固定在这个距离对轰：武器要够得着才开火，首发 = 锁定时间 + 半装填，<br>命中按「距离 ÷ 弹速」延迟结算；只算对舰 / 对潜火力，防空不参与。</div>' +
+    (red && blue ? '<div class="foot">用的是各自「配装」页里保存的换装' + (Object.keys(buildOf(red)).length || Object.keys(buildOf(blue)).length ? '（' + (Object.keys(buildOf(red)).length + Object.keys(buildOf(blue)).length) + ' 处自定义）' : '（原装）') + '；防空会把对方舰载机打下来一部分。</div>' : '') +
+    '<div class="foot">双方固定在这个距离对轰：武器要够得着才开火，首发 = 锁定时间 + 半装填，<br>命中按「距离 ÷ 弹速」延迟结算；防空不打船，但会按对方的防空强度削减舰载机输出。</div>' +
     '<div id="result">' + (BATTLE ? battleResultHtml(BATTLE) : '') + '</div>'
 }
 
